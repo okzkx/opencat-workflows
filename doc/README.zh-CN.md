@@ -72,6 +72,29 @@ opencat-workflows/
 
 更多说明见：`references/install-cursor.md`。
 
+## 当前这套本地用法
+
+按当前这类本地 `Claude Code` marketplace 的接入方式，通常会这样使用本包：
+
+- 将 `plugins/marketplaces/custom-plugins/` 作为目录型 marketplace 根目录
+- 将 `opencat-workflows/` 放在这个 marketplace 根目录下
+- 在 `custom-plugins/.claude-plugin/marketplace.json` 里登记 `"source": "./opencat-workflows"`
+- 以 `opencat-workflows@custom-plugins` 的形式安装或启用插件
+- 如果修改了标准技能内容，先以 `skills/` 为准，再同步刷新 Cursor 的镜像技能
+
+首次安装或刷新时，常用命令是：
+
+```text
+claude plugin install opencat-workflows@custom-plugins
+```
+
+安装完成后，可以先确认 `Claude Code` 中已经出现这些命名空间命令：
+
+- `/opencat-workflows:opencat-check`
+- `/opencat-workflows:opencat-cleanup`
+- `/opencat-workflows:opencat-task`
+- `/opencat-workflows:opencat-work`
+
 ## OpenSpec 依赖说明
 
 本包有意将 OpenSpec 视为外部前置依赖，而不是内置组成部分。
@@ -90,6 +113,18 @@ opencat-workflows/
 - 恢复一段未完成的执行流程：`/opencat-workflows:opencat-cleanup`
 - 端到端执行一次变更：`/opencat-workflows:opencat-task my-change-name`
 - 处理 `TODO.md` 中的下一条任务：`/opencat-workflows:opencat-work`
+
+## 推荐日常流程
+
+结合上面的本地接入方式，日常使用顺序建议写成固定流程：
+
+1. 开始处理仓库前，先运行 `/opencat-workflows:opencat-check`
+2. 如果检查结果表明仓库还没有回到完全可复用的空闲状态，就运行 `/opencat-workflows:opencat-cleanup`
+3. 如果你已经明确本次要做的变更名称，就运行 `/opencat-workflows:opencat-task <change-name>`
+4. 如果你是按 `TODO.md` / `DONE.md` 的轻量任务队列推进，就运行 `/opencat-workflows:opencat-work`
+5. 如果这次改的是插件本身，验证前先重新安装或刷新插件，确保加载到的是最新版本
+
+简单说：已知具体变更时用 `opencat-task`，按任务队列串行推进时用 `opencat-work`。
 
 ## 故障排查
 

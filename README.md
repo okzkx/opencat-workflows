@@ -94,6 +94,29 @@ See `references/install-claude-code.md` for the full notes.
 
 See `references/install-cursor.md` for the full notes.
 
+## Current Local Usage Pattern
+
+This repository is commonly used through a local `Claude Code` marketplace setup like this:
+
+- keep `plugins/marketplaces/custom-plugins/` as the directory marketplace root
+- keep `opencat-workflows/` inside that marketplace root
+- register the plugin in `custom-plugins/.claude-plugin/marketplace.json` with `"source": "./opencat-workflows"`
+- enable or install it as `opencat-workflows@custom-plugins`
+- after editing canonical skills, refresh any Cursor mirror from `skills/` before testing there
+
+In that setup, the first install or refresh usually looks like this:
+
+```text
+claude plugin install opencat-workflows@custom-plugins
+```
+
+After installation, confirm the namespaced commands appear in `Claude Code`:
+
+- `/opencat-workflows:opencat-check`
+- `/opencat-workflows:opencat-cleanup`
+- `/opencat-workflows:opencat-task`
+- `/opencat-workflows:opencat-work`
+
 ## OpenSpec Dependency
 
 This package intentionally treats OpenSpec as an external prerequisite instead of bundling it.
@@ -119,6 +142,18 @@ If they are missing, `opencat-check` should report that the environment is not f
 - Recover a half-finished run with `opencat-cleanup`
 - Execute one change end to end with `opencat-task`
 - Consume the next entry from `TODO.md` with `opencat-work`
+
+## Recommended Daily Flow
+
+For the usage pattern above, the normal session flow is:
+
+1. Run `/opencat-workflows:opencat-check` before touching a repository.
+2. If the report says the repo is not fully idle-ready, run `/opencat-workflows:opencat-cleanup`.
+3. For one explicit change, run `/opencat-workflows:opencat-task <change-name>`.
+4. For a queue-driven workflow, maintain `TODO.md` and `DONE.md`, then run `/opencat-workflows:opencat-work`.
+5. If you changed this plugin itself, reinstall or refresh the plugin before validating the updated behavior.
+
+Use `opencat-task` when you already know the exact change to execute, and use `opencat-work` when the repository is driven by a lightweight task queue.
 
 ## Repository Layout
 
