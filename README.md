@@ -11,6 +11,12 @@ Reusable repository-operation skills for `Claude Code` and `Cursor`, built aroun
 
 > Use this package when you want AI agents to check prerequisites, work in isolated `git worktree` task branches, optionally coordinate with OpenSpec, and always clean up back to a reusable idle state.
 
+> [!IMPORTANT]
+> Core value proposition:
+> Write tasks into `TODO.md`, then run `opencat-work`.
+> `opencat-work` reads one task at a time from `TODO.md`, starts a child agent for each task, creates or reuses an isolated `git worktree`, completes the task through the OpenSpec workflow, writes the finished result to `DONE.md`, and then keeps looping.
+> Because execution happens inside child agents, the main agent can keep a much more stable long-running context instead of being distorted by every task's implementation details.
+
 ## Highlights
 
 
@@ -31,7 +37,7 @@ Reusable repository-operation skills for `Claude Code` and `Cursor`, built aroun
 | `opencat-check`   | Validate prerequisites, package manager choice, OpenSpec availability, and reusable worktree slots |
 | `opencat-cleanup` | Converge interrupted OpenCat or OpenSpec work back to a safe idle state                            |
 | `opencat-task`    | Run one change through purpose, apply, archive, merge, and return-to-idle                          |
-| `opencat-work`    | Pull tasks from `TODO.md` / `DONE.md` and execute them serially through `opencat-task`             |
+| `opencat-work`    | Repeatedly claim one task at a time from `TODO.md`, execute it in a child agent and isolated worktree, then record completion in `DONE.md` |
 
 
 ## Good Fit For
@@ -143,6 +149,21 @@ If they are missing, `opencat-check` should report that the environment is not f
 - Execute one change end to end with `opencat-task`
 - Consume the next entry from `TODO.md` with `opencat-work`
 
+## Long-Running Queue Workflow
+
+The primary usage pattern is intentionally simple:
+
+1. Write tasks into `TODO.md`.
+2. Start `opencat-work`.
+3. Let it read one task at a time from `TODO.md`.
+4. For each task, let it start a child agent, create or reuse an isolated `git worktree`, and complete the task through the OpenSpec workflow.
+5. After the task is finished, move or record it in `DONE.md`.
+6. Continue the loop and claim the next task.
+
+This means `opencat-work` can keep processing tasks for a long time in a steady serial loop instead of requiring you to manually re-drive each step.
+
+The architectural benefit is that task execution happens inside child agents, not inside one ever-growing main-agent context. The main agent can therefore keep a more stable long-running context while each task gets its own isolated implementation context, branch, and worktree.
+
 ## Recommended Daily Flow
 
 For the usage pattern above, the normal session flow is:
@@ -150,7 +171,7 @@ For the usage pattern above, the normal session flow is:
 1. Run `/opencat-workflows:opencat-check` before touching a repository.
 2. If the report says the repo is not fully idle-ready, run `/opencat-workflows:opencat-cleanup`.
 3. For one explicit change, run `/opencat-workflows:opencat-task <change-name>`.
-4. For a queue-driven workflow, maintain `TODO.md` and `DONE.md`, then run `/opencat-workflows:opencat-work`.
+4. For long-running queue execution, maintain `TODO.md`, then run `/opencat-workflows:opencat-work` and let it process tasks one by one into `DONE.md`.
 5. If you changed this plugin itself, reinstall or refresh the plugin before validating the updated behavior.
 
 Use `opencat-task` when you already know the exact change to execute, and use `opencat-work` when the repository is driven by a lightweight task queue.

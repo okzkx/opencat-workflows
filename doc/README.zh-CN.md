@@ -2,6 +2,12 @@
 
 `OpenCat Workflows` 为 `Claude Code` 和 `Cursor` 提供了 4 个可复用的仓库操作技能包。
 
+> [!IMPORTANT]
+> 核心卖点：
+> 只要先把任务写进 `TODO.md`，再执行 `opencat-work`，它就会从 `TODO.md` 中一次读取一个任务，为每个任务启动一个子 agent，创建或复用独立的 `git worktree`，并通过 OpenSpec 工作流完成任务。
+> 任务完成后会写入 `DONE.md`，然后继续循环处理下一条。
+> 由于真正干活的是子 agent，主 agent 可以长时间保持更稳定、不易变形的上下文。
+
 它面向希望围绕以下流程建立可重复工作方式的团队：
 
 - Agent 执行前的前置检查
@@ -15,7 +21,7 @@
 - `opencat-check`：校验前置依赖、包管理器选择、OpenSpec 可用性，以及可复用 worktree 槽位
 - `opencat-cleanup`：将中断的 OpenCat/OpenSpec 工作收敛回安全的空闲状态
 - `opencat-task`：按 purpose、apply、archive、merge、return-to-idle 的流程执行单个变更
-- `opencat-work`：从 `TODO.md` / `DONE.md` 中提取任务，并通过 `opencat-task` 串行执行
+- `opencat-work`：从 `TODO.md` 中一次读取一个任务，在子 agent 和独立 worktree 中完成后写入 `DONE.md`，再继续循环
 
 ## 适用场景
 
@@ -114,6 +120,22 @@ claude plugin install opencat-workflows@custom-plugins
 - 端到端执行一次变更：`/opencat-workflows:opencat-task my-change-name`
 - 处理 `TODO.md` 中的下一条任务：`/opencat-workflows:opencat-work`
 
+## 长时间串行任务模式
+
+这个插件最值得强调的用法，其实就是下面这条主线：
+
+1. 先把任务写进 `TODO.md`
+2. 启动 `opencat-work`
+3. 让它从 `TODO.md` 里一次读取一个任务
+4. 每个任务都由一个子 agent 接手，并创建或复用一个独立的 `git worktree`
+5. 子 agent 在这个隔离环境里按 OpenSpec 工作流完成该任务
+6. 做完后把结果写入或移动到 `DONE.md`
+7. 然后继续循环，处理下一条任务
+
+也就是说，只要维护好 `TODO.md`，再启动 `opencat-work`，它就可以长期稳定地按串行方式一个一个处理任务，而不需要主 agent 每次都重新手动推进整个过程。
+
+这样设计的关键好处是：真正执行任务的是子 agent，不是把所有实现细节都堆进同一个主 agent 上下文里。主 agent 因此可以长期保持更稳定、不易变形的上下文，而每个具体任务都有自己独立的执行上下文、分支和 worktree。
+
 ## 推荐日常流程
 
 结合上面的本地接入方式，日常使用顺序建议写成固定流程：
@@ -121,7 +143,7 @@ claude plugin install opencat-workflows@custom-plugins
 1. 开始处理仓库前，先运行 `/opencat-workflows:opencat-check`
 2. 如果检查结果表明仓库还没有回到完全可复用的空闲状态，就运行 `/opencat-workflows:opencat-cleanup`
 3. 如果你已经明确本次要做的变更名称，就运行 `/opencat-workflows:opencat-task <change-name>`
-4. 如果你是按 `TODO.md` / `DONE.md` 的轻量任务队列推进，就运行 `/opencat-workflows:opencat-work`
+4. 如果你是按任务队列长期推进，就维护 `TODO.md`，然后运行 `/opencat-workflows:opencat-work`，让它把任务一条条处理到 `DONE.md`
 5. 如果这次改的是插件本身，验证前先重新安装或刷新插件，确保加载到的是最新版本
 
 简单说：已知具体变更时用 `opencat-task`，按任务队列串行推进时用 `opencat-work`。
