@@ -57,9 +57,10 @@ Details: `references/install-claude-code.md`, `references/install-cursor.md`, an
 
 ## Install In Claude Code
 
-1. Clone or copy this directory to a stable local path.
-2. Load it with `claude --plugin-dir <path-to-opencat-workflows>`.
-3. Confirm the namespaced skills appear, for example `/opencat-workflows:opencat-task`.
+1. Place `opencat-workflows/` directly under the `custom-plugins` marketplace root.
+2. Ensure `custom-plugins/.claude-plugin/marketplace.json` lists `"source": "./opencat-workflows"`.
+3. Install or enable it with `claude plugin install opencat-workflows@custom-plugins`.
+4. Confirm the namespaced skills appear, for example `/opencat-workflows:opencat-task`.
 
 Detailed notes: `references/install-claude-code.md`.
 
@@ -104,6 +105,6 @@ See `references/compatibility-matrix.md` and the skill-specific `references/` di
 
 ## Compatibility Notes
 
-- Primary target: `Claude Code` plugin loading
+- Primary target: `Claude Code` directory marketplace loading
 - Secondary target: `Cursor` skills compatibility
-- Not included in `0.1.0`: marketplace packaging, MCP distribution, or bundled OpenSpec skills
+- Not included in `0.1.0`: MCP distribution or bundled OpenSpec skills

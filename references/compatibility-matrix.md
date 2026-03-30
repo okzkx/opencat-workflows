@@ -2,12 +2,12 @@
 
 | Target | Status | Notes |
 |------|------|------|
-| Claude Code plugin loading | Supported | Primary packaging target for `0.1.0` |
+| Claude Code directory marketplace loading | Supported | Place plugin under `custom-plugins/` root and index it in `.claude-plugin/marketplace.json` |
 | Cursor skills loading | Supported | Uses `.cursor/skills/` mirror generated from canonical `skills/` |
 | OpenSpec CLI | Required externally | Not bundled in this package |
 | OpenSpec skills | Required for full task flow | `openspec-propose`, `openspec-apply-change`, `openspec-archive-change` |
 | MCP distribution | Not included | Out of scope for first release |
-| Marketplace packaging | Not included | File-based install only in first release |
+| Directory marketplace packaging | Supported | Install with `claude plugin install opencat-workflows@custom-plugins` |
 
 ## Expected Repository Conventions
 

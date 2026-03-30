@@ -2,9 +2,10 @@
 
 ## Quick Start
 
-1. Clone or copy `opencat-workflows/` to a stable local path.
-2. Run `claude --plugin-dir <path-to-opencat-workflows>`.
-3. Open `/help` and verify namespaced skills are visible:
+1. Place `opencat-workflows/` under the local directory marketplace root, for example `plugins/marketplaces/custom-plugins/opencat-workflows/`.
+2. Add or verify an entry in `custom-plugins/.claude-plugin/marketplace.json` with `"source": "./opencat-workflows"`.
+3. Run `claude plugin install opencat-workflows@custom-plugins`.
+4. Open `/help` and verify namespaced skills are visible:
    - `/opencat-workflows:opencat-check`
    - `/opencat-workflows:opencat-cleanup`
    - `/opencat-workflows:opencat-task`
@@ -14,8 +15,9 @@
 
 1. `plugin.json` exists at `.claude-plugin/plugin.json`
 2. `plugin.json` has a valid `name`
-3. each skill lives at `skills/<skill-name>/SKILL.md`
-4. the namespaced skill list appears after loading the plugin
+3. the marketplace manifest lists the plugin path as `./opencat-workflows`
+4. each skill lives at `skills/<skill-name>/SKILL.md`
+5. the namespaced skill list appears after installing the plugin
 
 ## Recommended First Run
 
