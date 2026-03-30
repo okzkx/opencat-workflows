@@ -212,5 +212,5 @@ For operational detail, see:
 
 - Primary target: `Claude Code` directory marketplace loading
 - Secondary target: `Cursor` skills compatibility
-- Not included in `0.1.0`: MCP distribution or bundled OpenSpec skills
+- Not included in `0.1.1`: MCP distribution or bundled OpenSpec skills
 

@@ -164,4 +164,4 @@ claude plugin install opencat-workflows@custom-plugins
 
 - 主要目标：`Claude Code` 目录型 marketplace 加载
 - 次要目标：`Cursor` 技能兼容
-- `0.1.0` 版本未包含：MCP 分发能力或内置 OpenSpec 技能
+- `0.1.1` 版本未包含：MCP 分发能力或内置 OpenSpec 技能

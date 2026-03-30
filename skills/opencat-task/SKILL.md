@@ -1,8 +1,6 @@
 ---
 name: opencat-task
 description: Execute one OpenCat change through purpose, apply, archive, merge, and return-to-idle using an isolated git worktree and reusable idle branches.
-license: MIT
-version: "0.1.0"
 ---
 
 # OpenCat Task
@@ -10,6 +8,7 @@ version: "0.1.0"
 Use this skill to execute one repository change end to end.
 
 This is the core OpenCat workflow skill. It assumes the repository has already passed `opencat-check`.
+When invoked from `opencat-work`, this skill should run inside a dedicated task SubAgent rather than directly in the parent agent.
 
 ## External Dependencies
 
@@ -29,6 +28,12 @@ This skill does not bundle OpenSpec. For the full workflow it expects these comp
 6. Rebase the task branch onto the latest `trunk` before implementation.
 7. Run purpose, apply, validate, archive, and merge in that order.
 8. Call `opencat-cleanup` after merge so the slot returns to a reusable idle state.
+
+## Agent Boundary
+
+- the parent agent should select the queue item, run prerequisite checks, and launch or resume the task SubAgent
+- the task SubAgent should own the retained worktree execution for this skill from branch preparation through merge and cleanup
+- do not ask the parent agent to directly perform the implementation steps that belong to this skill once the task SubAgent has started
 
 ## Recommended Conventions
 
@@ -65,6 +70,7 @@ Report:
 - task branch
 - retained worktree path
 - paired idle branch
+- whether this skill ran inside a task SubAgent
 - whether purpose/apply/archive/merge succeeded
 - whether cleanup returned the slot to idle
 

@@ -1,8 +1,6 @@
 ---
 name: opencat-check
 description: Prepare OpenCat and OpenSpec prerequisites before repository task execution. Validate Git, Node.js, the preferred package manager, OpenSpec, and reusable worktree slots.
-license: MIT
-version: "0.1.0"
 ---
 
 # OpenCat Check
@@ -10,6 +8,8 @@ version: "0.1.0"
 Use this skill before `opencat-task` or `opencat-work`.
 
 Its job is to determine whether a repository is safe and ready for OpenCat-style execution.
+
+When this skill is used as part of `opencat-work`, it normally runs in the parent agent before any task SubAgent is launched.
 
 ## What This Skill Must Validate
 
@@ -66,7 +66,7 @@ Report:
 - which tools or dependencies were installed during the run
 - which worktree slots are `idle-ready`
 - whether `opencat-cleanup` is required before task execution
-- whether the repository is ready for `opencat-task`
+- whether the repository is ready for a SubAgent to run `opencat-task`
 
 ## References
 
