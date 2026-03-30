@@ -1,0 +1,17 @@
+{
+  "name": "opencat-workflows",
+  "version": "0.1.0",
+  "description": "OpenCat workflow skills for prerequisite checks, worktree-based task execution, cleanup, and TODO-driven task orchestration.",
+  "author": {
+    "name": "opencat"
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "cursor",
+    "skills",
+    "openspec",
+    "git-worktree",
+    "workflow"
+  ]
+}
