@@ -1,7 +1,7 @@
 ---
 name: opencat-work
 description: OpenCat 任务列表连续执行器。开始执行前**必须**调用 `opencat-check` 与 `opencat-cleanup`；只有全部保留 worktree 回到闲置分支后才能领取新 TODO，任务执行**必须**通过 `opencat-task` 完成。
-compatibility: Requires `opencat-task` and `opencat-cleanup` skills to be available in the project.
+compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` skills to be available in the project.
 ---
 
 # /opencat-work - 任务列表连续执行器
@@ -10,12 +10,39 @@ compatibility: Requires `opencat-task` and `opencat-cleanup` skills to be availa
 
 ## 🚨 核心不可违反规则
 
-1. **必须**先调用 `opencat-check` 与 `opencat-cleanup`；只要还有任意保留 worktree 不在 `idle branch` 上，就**严禁**领取新的 TODO 任务。
+1. **必须**先调用 `opencat-check` 与 `opencat-cleanup`；只要还有任意 worktree 不在 `idle branch` 上，就**严禁**领取新的 TODO 任务。
 2. **必须**通过 `opencat-task` 的标准 worktree 流程执行任务；严禁主 Agent 直接接管实现，破坏隔离。
 3. **必须**串行运行任务 SubAgent；同一时刻只能有一个任务 SubAgent 处于执行中。
 4. **严禁**把未激活的 backlog 任务当作可执行任务；若 `TODO.md` 中既没有活跃章节也没有活跃任务，就**不得**自动领取任何普通任务。
 5. **必须**默认自主决断并继续推进；最多记录问题，不因常规不确定性退出、暂停或回头追问用户。
-6. 对“修复”类任务，**必须**重新验证当前现状；严禁仅凭历史 DONE / archive 记录直接跳过。
+6. 对”修复”类任务，**必须**重新验证当前现状；严禁仅凭历史 DONE / archive 记录直接跳过。
+7. **必须**为每个 SubAgent 生成独特的猫咪身份，并在 worktree 中设置对应的 Git 用户信息；严禁以通用身份或主 Agent 身份提交代码。
+
+## 🐱 猫咪 SubAgent 身份系统
+
+每个任务 SubAgent 在创建时，必须为其生成一个独特的拟人化猫咪身份。这只猫将作为该任务的专属执行者，全程以自己的身份工作。
+
+**身份生成统一委托给 `opencat-agent` 技能。** 本技能不再内联实现猫咪生成逻辑，而是在需要生成猫咪身份时调用 `opencat-agent`，获取完整的身份档案和 SubAgent Prompt 注入片段。
+
+### 调用流程
+
+1. 主 Agent 选定任务后，调用 `opencat-agent` 并传入任务名称和描述
+2. `opencat-agent` 返回完整的猫咪身份档案，包括：
+   - 身份信息（姓名、品种、职业、经历、性格、口头禅、邮箱）
+   - Git 配置命令
+   - SubAgent Prompt 注入片段
+   - DONE.md 署名片段
+3. 主 Agent 使用返回的 Prompt 注入片段启动 SubAgent
+4. SubAgent 在 worktree 中设置 Git 身份并执行任务
+5. 任务完成后，使用返回的署名片段写入 `DONE.md`
+
+### 本技能维护的约束
+
+| 约束 | 说明 |
+|------|------|
+| 身份唯一性 | 同一会话中禁止复用同一只猫；调用 `opencat-agent` 时传入已使用的猫咪姓名列表 |
+| Git 身份隔离 | SubAgent 必须在 worktree 中使用猫咪身份的 `git config`，禁止通用身份 |
+| 署名必填 | `DONE.md` 记录必须包含猫咪署名：`🐱 姓名（职业·品种）` |
 
 ## 调用约定
 
@@ -57,13 +84,13 @@ compatibility: Requires `opencat-task` and `opencat-cleanup` skills to be availa
 # DONE
 
 ## P1
-- [2026-03-29 14:30] 实现用户登录功能 — 完成页面和接口对接，登录跳转正常
+- [2026-03-29 14:30] 实现用户登录功能 — 完成页面和接口对接，登录跳转正常 — 🐱 雪球（前端魔法师·布偶猫）
 
 ## P2
-- [2026-03-29 15:10] 编写登录模块单元测试 — 所有测试通过
+- [2026-03-29 15:10] 编写登录模块单元测试 — 所有测试通过 — 🐱 墨墨（质量守卫·虎斑猫）
 
 ## P3
-- [2026-03-29 16:00] 部署到测试环境
+- [2026-03-29 16:00] 部署到测试环境 — 🐱 总裁（部署指挥官·狸花猫）
 ```
 
 ## 解析规则
@@ -114,8 +141,10 @@ compatibility: Requires `opencat-task` and `opencat-cleanup` skills to be availa
    - 同一时刻只能有一个任务 SubAgent 处于执行中；禁止为同一任务或不同任务并行创建多个 SubAgent 争抢工作
    - 主 Agent 启动 SubAgent 后，必须耐心等待其完成，通过轮询进度/结果来衔接；除非确认 SubAgent 已失败、卡死或用户明确要求接管，否则不要因为等待而切换成主 Agent 亲自实现
    - **10 分钟静默等待规则**：只要 SubAgent 已正常启动且没有明确失败信号，即使连续 10 分钟没有新的文本回应，也默认视为仍在正常执行；在这 10 分钟窗口内不要仅因无输出就判定卡住、不要频繁 resume/追问催促
-   - 只有 cleanup 已明确报告“仓库完全干净且所有 worktree 均闲置”后，才允许启动 SubAgent
-   - 启动任务 SubAgent
+   - 只有 cleanup 已明确报告”仓库完全干净且所有 worktree 均闲置”后，才允许启动 SubAgent
+   - **生成猫咪身份**：启动 SubAgent 前，调用 `opencat-agent` 技能，传入任务名称和描述（以及本会话已使用的猫咪姓名列表），获取完整的猫咪身份档案和 SubAgent Prompt 注入片段
+   - **注入身份到 SubAgent**：使用 `opencat-agent` 返回的 Prompt 注入片段启动 SubAgent，确保 SubAgent 以猫咪身份运行
+   - 启动任务 SubAgent（以猫咪身份运行）
    - 只有当当前 SubAgent 已完成并销毁后，主 Agent 才能为下一个任务再创建新的 SubAgent
    - **重要** SubAgent 内部必须调用 `opencat-task`
    - **重要** SubAgent 必须全程自主执行；若遇到难以判断的情况，不得向主 Agent 提问或等待确认，必须选择最保守的可继续方案，记录问题后继续
@@ -128,8 +157,8 @@ compatibility: Requires `opencat-task` and `opencat-cleanup` skills to be availa
 
 6. **归档**
    - 从 `TODO.md` 删除已完成任务行
-   - 在 `DONE.md` 对应章节追加记录：`- [时间] 任务名称 — 执行结果`
-   - 提交 git：`完成: 任务名称`
+   - 在 `DONE.md` 对应章节追加记录：`- [时间] 任务名称 — 执行结果 — 🐱 猫咪姓名（职业·品种）`
+   - 提交 git：`完成: 任务名称`（使用执行该任务的猫咪身份提交）
 
 7. **继续下一个**
    - 每完成一个任务后，再次执行一次 `check + cleanup`
@@ -148,28 +177,30 @@ compatibility: Requires `opencat-task` and `opencat-cleanup` skills to be availa
 
 1. **新任务前必须先 check + cleanup**: 每次执行 `TODO.md` 前，先运行 `opencat-check`，再运行 `opencat-cleanup`
 2. **所有 worktree 全部闲置后才能跑 TODO**: 只要有任意一个保留 worktree 不在 `idle branch` 上，就视为还有旧任务未收尾
-3. **SubAgent 独立执行**: 每个任务由全新 SubAgent 执行，上下文 100% 隔离
+3. **SubAgent 独立执行**: 每个任务由全新 SubAgent 执行，上下文 100% 隔离；每个 SubAgent 都有独立的猫咪身份
 4. **必须使用 opencat-task**: SubAgent 内部通过 `opencat-task` 完成任务
-5. **主 Agent 不抢子 Agent 工作**: 主 Agent 只做编排、状态管理和最终汇总，不直接展开实现、调试、测试、读大量业务代码等本应由 SubAgent 完成的工作
-6. **主 Agent 耐心等待**: 子 Agent 已正常启动后，主 Agent 应持续等待其完成并仅做必要轮询；不要因短时间没有结果就接管实现，避免上下文热污染
-7. **10 分钟无回应不算卡死**: 只要子 Agent 已启动且无明确失败证据，连续 10 分钟没有新回应也仍视为正常执行；10 分钟内不得仅因静默就判定卡住或频繁发送追问
-8. **单子 Agent 串行执行**: 主 Agent 一次只能启动一个任务 SubAgent；必须等该 SubAgent 结束并销毁后，才能启动下一个任务的 SubAgent
-9. **必须使用 worktree**: `opencat-task` 的 apply/archive 阶段必须在独立 worktree 中执行
-10. **闲置分支是唯一待命状态**: 保留 worktree 空闲时必须在各自的 `idle branch` 上，且工作区干净
-11. **非闲置即任务态**: worktree 不处于闲置分支时，它就一定是在执行某个任务
-12. **开发前先变基**: 工作分支在开始开发前，必须先 rebase 到最新 `base_branch`
-13. **变更合并回主干**: 完成后必须将变更合并回 `base_branch`，且 merge 前必须再次 rebase 到最新 `base_branch`
-14. **任务分支必须删除**: 任务完成并回到闲置态后，对应任务分支必须删除
-15. **worktree 保留不删除**: 任务完成后保留 worktree 目录供下次使用
-16. **冲突处理固定策略**: 遇到分支冲突、主干推进、rebase 冲突或 merge 冲突时，永远先 rebase 到最新提交，再自行解决冲突并继续流程
-17. **立即保存**: 每次编辑文件后立即保存，不要批量操作
-18. **任务描述清晰**: 任务应当具体可执行、可验收
-19. **不修改任务内容**: 除非用户明确要求
-20. **默认自主选择任务**: 显式调用本技能但未指定任务时，按上下文和优先级自主决定并继续
-21. **只执行显式激活任务**: 若 `## P1` 这类章节标题后没有 `>`，且任务行前也没有 `>`，则这些任务只是 backlog，严禁自动执行
-22. **修复任务必须重审**: 凡是“修复”开头的任务，都必须重新核对当前行为、代码与历史提交，不能仅凭归档 / DONE 存在相似项就跳过
-23. **子 Agent 禁止提问卡住**: 子 Agent 必须全程自己执行；若遇到难以判断的情况，选择最保守可继续路径并记录原因，禁止向主 Agent 发问等待确认
-24. **默认记录问题后继续**: 无论是 cleanup 还是 task 执行，只要仍有可继续步骤，就先记录异常并继续，不因常规不确定性暂停
+5. **猫咪身份唯一性**: 每只猫的身份（姓名、品种、职业）必须与任务匹配且不重复；同一会话中禁止复用同一只猫
+6. **Git 身份隔离**: SubAgent 在 worktree 中必须使用猫咪身份的 `git config user.name/email` 提交代码
+8. **主 Agent 不抢子 Agent 工作**: 主 Agent 只做编排、状态管理和最终汇总，不直接展开实现、调试、测试、读大量业务代码等本应由 SubAgent 完成的工作
+9. **主 Agent 耐心等待**: 子 Agent 已正常启动后，主 Agent 应持续等待其完成并仅做必要轮询；不要因短时间没有结果就接管实现，避免上下文热污染
+10. **10 分钟无回应不算卡死**: 只要子 Agent 已启动且无明确失败证据，连续 10 分钟没有新回应也仍视为正常执行；10 分钟内不得仅因静默就判定卡住或频繁发送追问
+11. **单子 Agent 串行执行**: 主 Agent 一次只能启动一个任务 SubAgent；必须等该 SubAgent 结束并销毁后，才能启动下一个任务的 SubAgent
+12. **必须使用 worktree**: `opencat-task` 的 apply/archive 阶段必须在独立 worktree 中执行
+13. **闲置分支是唯一待命状态**: 保留 worktree 空闲时必须在各自的 `idle branch` 上，且工作区干净
+14. **非闲置即任务态**: worktree 不处于闲置分支时，它就一定是在执行某个任务
+15. **开发前先变基**: 工作分支在开始开发前，必须先 rebase 到最新 `base_branch`
+16. **变更合并回主干**: 完成后必须将变更合并回 `base_branch`，且 merge 前必须再次 rebase 到最新 `base_branch`
+17. **任务分支必须删除**: 任务完成并回到闲置态后，对应任务分支必须删除
+18. **worktree 保留不删除**: 任务完成后保留 worktree 目录供下次使用
+19. **冲突处理固定策略**: 遇到分支冲突、主干推进、rebase 冲突或 merge 冲突时，永远先 rebase 到最新提交，再自行解决冲突并继续流程
+20. **立即保存**: 每次编辑文件后立即保存，不要批量操作
+21. **任务描述清晰**: 任务应当具体可执行、可验收
+22. **不修改任务内容**: 除非用户明确要求
+23. **默认自主选择任务**: 显式调用本技能但未指定任务时，按上下文和优先级自主决定并继续
+24. **只执行显式激活任务**: 若 `## P1` 这类章节标题后没有 `>`，且任务行前也没有 `>`，则这些任务只是 backlog，严禁自动执行
+25. **修复任务必须重审**: 凡是”修复”开头的任务，都必须重新核对当前行为、代码与历史提交，不能仅凭归档 / DONE 存在相似项就跳过
+26. **子 Agent 禁止提问卡住**: 子 Agent 必须全程自己执行；若遇到难以判断的情况，选择最保守可继续路径并记录原因，禁止向主 Agent 发问等待确认
+27. **默认记录问题后继续**: 无论是 cleanup 还是 task 执行，只要仍有可继续步骤，就先记录异常并继续，不因常规不确定性暂停
 
 ## 输出格式
 
@@ -178,6 +209,7 @@ compatibility: Requires `opencat-task` and `opencat-cleanup` skills to be availa
 
 **当前任务:** <任务名称>
 **优先级:** P1|P2|P3
+**猫咪执行者:** <猫咪姓名>（<职业>·<品种>）
 **Cleanup:** ready|continuing|blocked
 **状态:** 执行中|完成|失败
 
