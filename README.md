@@ -1,6 +1,9 @@
 # OpenCat Workflows
 
-![OpenCat Workflows logo](doc/logo.svg)
+```
+ /\_/\___________________________________________________________ __
+( o.o )___________________________________________________________) 
+```
 
 [English](README.md) | [简体中文](doc/README.zh-CN.md)
 
