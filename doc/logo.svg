@@ -2,16 +2,44 @@
   <rect width="960" height="240" rx="28" fill="#0F172A"/>
   <rect x="24" y="24" width="912" height="192" rx="22" fill="#111827" stroke="#334155" stroke-width="2"/>
 
-  <circle cx="138" cy="120" r="62" fill="#22C55E"/>
-  <path d="M99 74L116 34L132 80" fill="#22C55E"/>
-  <path d="M144 80L160 34L177 74" fill="#22C55E"/>
-  <circle cx="121" cy="118" r="7" fill="#0F172A"/>
-  <circle cx="156" cy="118" r="7" fill="#0F172A"/>
-  <path d="M129 140C136 148 145 148 152 140" stroke="#0F172A" stroke-width="6" stroke-linecap="round"/>
-  <path d="M92 124H58" stroke="#86EFAC" stroke-width="4" stroke-linecap="round"/>
-  <path d="M92 136H64" stroke="#86EFAC" stroke-width="4" stroke-linecap="round"/>
-  <path d="M184 124H218" stroke="#86EFAC" stroke-width="4" stroke-linecap="round"/>
-  <path d="M184 136H212" stroke="#86EFAC" stroke-width="4" stroke-linecap="round"/>
+  <!-- White face = base; two grey patches on upper left / upper right (ears + eye area), center blaze stays white -->
+  <ellipse cx="138" cy="118" rx="64" ry="58" fill="#F8FAFC"/>
+  <path fill="#64748B" d="
+    M 72 118
+    C 68 82 86 50 114 34
+    L 118 32
+    L 130 86
+    C 124 96 126 108 132 114
+    C 128 122 118 124 108 120
+    C 88 112 78 105 72 118
+    Z"/>
+  <path fill="#64748B" d="
+    M 204 118
+    C 208 82 190 50 162 34
+    L 158 32
+    L 146 86
+    C 152 96 150 108 144 114
+    C 148 122 158 124 168 120
+    C 188 112 198 105 204 118
+    Z"/>
+  <path d="M106 52L116 42L124 62Z" fill="#FDA4AF" opacity="0.75"/>
+  <path d="M152 62L160 42L170 52Z" fill="#FDA4AF" opacity="0.75"/>
+
+  <circle cx="116" cy="104" r="12" fill="#D97706"/>
+  <circle cx="116" cy="104" r="7" fill="#1C1917"/>
+  <circle cx="118" cy="100" r="3" fill="#F8FAFC" opacity="0.95"/>
+
+  <circle cx="160" cy="104" r="12" fill="#D97706"/>
+  <circle cx="160" cy="104" r="7" fill="#1C1917"/>
+  <circle cx="162" cy="100" r="3" fill="#F8FAFC" opacity="0.95"/>
+
+  <ellipse cx="138" cy="122" rx="5" ry="4" fill="#FB7185"/>
+  <path d="M134 126Q138 132 142 126" stroke="#78716C" stroke-width="2" stroke-linecap="round" fill="none"/>
+
+  <path d="M88 126H56" stroke="#94A3B8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M90 136H60" stroke="#94A3B8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M188 126H220" stroke="#94A3B8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M186 136H216" stroke="#94A3B8" stroke-width="3" stroke-linecap="round"/>
 
   <text x="248" y="104" fill="#F8FAFC" font-family="Segoe UI, Arial, sans-serif" font-size="44" font-weight="700">
     OpenCat Workflows
