@@ -2,27 +2,26 @@
 
 | Target | Status | Notes |
 |------|------|------|
-| Claude Code directory marketplace loading | Supported | Place plugin under `custom-plugins/` root and index it in `.claude-plugin/marketplace.json` |
-| Cursor skills loading | Supported | Uses `.cursor/skills/` mirror generated from canonical `skills/` |
+| Claude Code directory marketplace loading | Supported | Install through `custom-plugins` and `claude plugin install opencat-workflows@custom-plugins` |
+| Cursor skills loading | Supported | Uses a generated `.cursor/skills/` mirror built from canonical `skills/` |
 | OpenSpec CLI | Required externally | Not bundled in this package |
 | OpenSpec skills | Required for full task flow | `openspec-propose`, `openspec-apply-change`, `openspec-archive-change` |
-| MCP distribution | Not included | Out of scope for first release |
-| Directory marketplace packaging | Supported | Install with `claude plugin install opencat-workflows@custom-plugins` |
+| MCP distribution | Not included | Out of scope for this package |
 
 ## Expected Repository Conventions
 
-The target repository should ideally use:
+The target repository should ideally have:
 
 - a detectable `trunk` branch such as `main` or `master`
 - reusable `git worktree` slots
 - idle branches named like `opencat/idle/<slot-name>`
 - task branches named like `opencat/<change-name>`
-- lightweight `TODO.md` / `DONE.md` files if `opencat-work` is used
+- lightweight `TODO.md` and `DONE.md` files when `opencat-work` is used
 
 ## Common Mismatch Cases
 
 - retained worktrees are dirty or detached
 - the repo does not use a stable idle-branch convention
-- package manager cannot be inferred from lockfiles
+- the package manager cannot be inferred from lockfiles
 - OpenSpec is missing from `PATH` and unavailable through `npx`
-- the user expects the plugin to bundle OpenSpec behavior directly
+- the user expects this package to bundle OpenSpec behavior directly

@@ -1,141 +1,57 @@
 # OpenCat Workflows
 
-```
- /\_/\___________________________________________________________ __
-( o.o )___________________________________________________________) 
-```
+![OpenCat Workflows logo](doc/logo.svg)
 
 [English](README.md) | [简体中文](doc/README.zh-CN.md)
 
-Reusable repository-operation skills for `Claude Code` and `Cursor`, built around a strict, repeatable workflow for agent-driven changes.
+Reusable workflow skills for `Claude Code` and `Cursor`, focused on three things:
 
-> Use this package when you want AI agents to check prerequisites, work in isolated `git worktree` task branches, optionally coordinate with OpenSpec, and always clean up back to a reusable idle state.
+- checking repository prerequisites before execution
+- isolating each task in reusable `git worktree` slots
+- converging back to a clean idle state after each run
 
-> [!IMPORTANT]
-> Core value proposition:
-> Write tasks into `TODO.md`, then run `opencat-work`.
-> `opencat-work` reads one task at a time from `TODO.md`, starts a child agent for each task, creates or reuses an isolated `git worktree`, completes the task through the OpenSpec workflow, writes the finished result to `DONE.md`, and then keeps looping.
-> Because execution happens inside child agents, the main agent can keep a much more stable long-running context instead of being distorted by every task's implementation details.
-
-## Highlights
-
-
-| Area               | What it gives you                                                                                           |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- |
-| Safer starts       | Validate Git, Node.js, package manager, OpenSpec availability, and reusable worktree slots before execution |
-| Task isolation     | Run each change inside a predictable `git worktree`-based workflow                                          |
-| Recoverability     | Clean up interrupted runs and converge the repo back to a safe idle state                                   |
-| Queue execution    | Pull work from `TODO.md` and process tasks serially                                                         |
-| Dual compatibility | Maintain canonical skills for `Claude Code` and a mirrored set for `Cursor`                                 |
-
+This package does not bundle OpenSpec itself. `opencat-task` and `opencat-work` expect OpenSpec CLI and the related OpenSpec skills to already exist in the target environment.
 
 ## Included Skills
 
+| Skill | Purpose |
+|------|------|
+| `opencat-check` | Verify tools, package manager, OpenSpec availability, and worktree topology |
+| `opencat-cleanup` | Recover interrupted work and return retained worktrees to a safe idle state |
+| `opencat-task` | Execute one change through purpose, apply, archive, merge, and cleanup |
+| `opencat-work` | Execute activated `TODO.md` items serially through child agents and isolated worktrees |
 
-| Skill             | Purpose                                                                                            |
-| ----------------- | -------------------------------------------------------------------------------------------------- |
-| `opencat-check`   | Validate prerequisites, package manager choice, OpenSpec availability, and reusable worktree slots |
-| `opencat-cleanup` | Converge interrupted OpenCat or OpenSpec work back to a safe idle state                            |
-| `opencat-task`    | Run one change through purpose, apply, archive, merge, and return-to-idle                          |
-| `opencat-work`    | Repeatedly claim one task at a time from `TODO.md`, execute it in a child agent and isolated worktree, then record completion in `DONE.md` |
-
-
-## Good Fit For
-
-This package is a good fit if your team already:
-
-- uses Git and `git worktree`
-- wants AI agents to follow a strict task-isolation workflow
-- optionally uses OpenSpec to define and archive changes
-- is comfortable maintaining a lightweight `TODO.md` / `DONE.md` convention
-
-It is not a general project-management plugin, and it does not bundle OpenSpec itself.
-
-## Quick Start
-
-
-| Environment   | What to do                                                                                                                                          |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Claude Code` | Place `opencat-workflows/` under your `custom-plugins` marketplace root, make sure the marketplace manifest points to it, then install or enable it |
-| `Cursor`      | Copy `.cursor/skills/` into the target repository and refresh the mirrored skills when canonical files change                                       |
-
-
-Detailed setup guides:
-
-- `references/install-claude-code.md`
-- `references/install-cursor.md`
-
-## Prerequisites
+## Requirements
 
 Before using `opencat-task` or `opencat-work`, make sure the target repository has:
 
-- Git available on `PATH`
-- Node.js available on `PATH`
-- the repository's preferred package manager available
+- Git on `PATH`
+- Node.js on `PATH`
+- the repository's preferred package manager
 - OpenSpec CLI available directly or through `npx openspec@latest`
-- external OpenSpec skills available if you want full purpose/apply/archive orchestration
+- the external OpenSpec skills required by `opencat-task`
 
-Further details:
-
-- `references/install-claude-code.md`
-- `references/install-cursor.md`
-- `skills/opencat-task/references/dependency-openspec.md`
-
-## Installation
+## Install
 
 ### Claude Code
 
-1. Place `opencat-workflows/` directly under the `custom-plugins` marketplace root.
-2. Ensure `custom-plugins/.claude-plugin/marketplace.json` lists `"source": "./opencat-workflows"`.
-3. Install or enable it with `claude plugin install opencat-workflows@custom-plugins`.
-4. Confirm the namespaced skills appear, for example `/opencat-workflows:opencat-task`.
+1. Place `opencat-workflows/` under your local `custom-plugins` marketplace root.
+2. Add or verify `"source": "./opencat-workflows"` in `custom-plugins/.claude-plugin/marketplace.json`.
+3. Run `claude plugin install opencat-workflows@custom-plugins`.
+4. Confirm `/opencat-workflows:opencat-check` and the other namespaced skills are visible.
 
-See `references/install-claude-code.md` for the full notes.
+Detailed notes: `references/install-claude-code.md`
 
 ### Cursor
 
-1. Copy `.cursor/skills/` from this package into the target repository's `.cursor/skills/`.
-2. If you edit canonical skills under `skills/`, run `scripts/sync-cursor-skills.ps1` to refresh the mirror.
-3. Reopen or reload Cursor if the skills list does not refresh automatically.
+1. Run `scripts/sync-cursor-skills.ps1` to generate the `.cursor/skills/` mirror from canonical `skills/`.
+2. Copy the generated `.cursor/skills/` directory into the target repository.
+3. Reload Cursor if the skills do not appear immediately.
+4. Confirm `opencat-check`, `opencat-cleanup`, `opencat-task`, and `opencat-work` are discoverable.
 
-See `references/install-cursor.md` for the full notes.
+Detailed notes: `references/install-cursor.md`
 
-## Current Local Usage Pattern
-
-This repository is commonly used through a local `Claude Code` marketplace setup like this:
-
-- keep `plugins/marketplaces/custom-plugins/` as the directory marketplace root
-- keep `opencat-workflows/` inside that marketplace root
-- register the plugin in `custom-plugins/.claude-plugin/marketplace.json` with `"source": "./opencat-workflows"`
-- enable or install it as `opencat-workflows@custom-plugins`
-- after editing canonical skills, refresh any Cursor mirror from `skills/` before testing there
-
-In that setup, the first install or refresh usually looks like this:
-
-```text
-claude plugin install opencat-workflows@custom-plugins
-```
-
-After installation, confirm the namespaced commands appear in `Claude Code`:
-
-- `/opencat-workflows:opencat-check`
-- `/opencat-workflows:opencat-cleanup`
-- `/opencat-workflows:opencat-task`
-- `/opencat-workflows:opencat-work`
-
-## OpenSpec Dependency
-
-This package intentionally treats OpenSpec as an external prerequisite instead of bundling it.
-
-When `opencat-task` uses purpose, apply, and archive stages, it expects these external capabilities to exist:
-
-- `openspec-propose`
-- `openspec-apply-change`
-- `openspec-archive-change`
-
-If they are missing, `opencat-check` should report that the environment is not fully ready.
-
-## Usage Examples
+## Basic Usage
 
 ```text
 /opencat-workflows:opencat-check
@@ -144,73 +60,71 @@ If they are missing, `opencat-check` should report that the environment is not f
 /opencat-workflows:opencat-work
 ```
 
-- Start a repo session safely with `opencat-check`
-- Recover a half-finished run with `opencat-cleanup`
-- Execute one change end to end with `opencat-task`
-- Consume the next entry from `TODO.md` with `opencat-work`
+- Use `opencat-check` before touching a repository
+- Use `opencat-cleanup` when retained worktrees or old task branches were left behind
+- Use `opencat-task` when you already know the exact change to execute
+- Use `opencat-work` when you want to drive work from `TODO.md`
 
-## Long-Running Queue Workflow
+## TODO Activation Rules
 
-The primary usage pattern is intentionally simple:
+`opencat-work` only executes explicitly activated items.
 
-1. Write tasks into `TODO.md`.
-2. Start `opencat-work`.
-3. Let it read one task at a time from `TODO.md`.
-4. For each task, let it start a child agent, create or reuse an isolated `git worktree`, and complete the task through the OpenSpec workflow.
-5. After the task is finished, move or record it in `DONE.md`.
-6. Continue the loop and claim the next task.
+- `## P1 >` means that section is allowed to feed the execution queue
+- `- > Task A` means that task is explicitly marked as the current task
+- if a section has no `>` and the task line has no `>`, that item is backlog only
+- backlog items must not be auto-activated or auto-executed by `opencat-work`
 
-This means `opencat-work` can keep processing tasks for a long time in a steady serial loop instead of requiring you to manually re-drive each step.
+Example:
 
-The architectural benefit is that task execution happens inside child agents, not inside one ever-growing main-agent context. The main agent can therefore keep a more stable long-running context while each task gets its own isolated implementation context, branch, and worktree.
+```markdown
+# TODO
 
-## Recommended Daily Flow
+## P1 >
+- Task A
+- Task B
 
-For the usage pattern above, the normal session flow is:
+## P2
+- Backlog Task C
+```
 
-1. Run `/opencat-workflows:opencat-check` before touching a repository.
-2. If the report says the repo is not fully idle-ready, run `/opencat-workflows:opencat-cleanup`.
-3. For one explicit change, run `/opencat-workflows:opencat-task <change-name>`.
-4. For long-running queue execution, maintain `TODO.md`, then run `/opencat-workflows:opencat-work` and let it process tasks one by one into `DONE.md`.
-5. If you changed this plugin itself, reinstall or refresh the plugin before validating the updated behavior.
+In this example, `Task A` and `Task B` are runnable. `Backlog Task C` is not.
 
-Use `opencat-task` when you already know the exact change to execute, and use `opencat-work` when the repository is driven by a lightweight task queue.
+## Recommended Flow
+
+1. Run `opencat-check`
+2. Run `opencat-cleanup` if the repo is not idle-ready
+3. Run `opencat-task <change-name>` for one explicit change, or activate a `TODO.md` section and run `opencat-work`
+4. If you changed canonical skills, regenerate the Cursor mirror before validating there
 
 ## Repository Layout
 
 ```text
 opencat-workflows/
-├── .claude-plugin/plugin.json
-├── skills/
-├── .cursor/skills/
+├── .claude-plugin/
+├── doc/
 ├── references/
 ├── scripts/
-├── doc/
-│   └── README.zh-CN.md
+├── skills/
 ├── README.md
 └── LICENSE
 ```
 
-`skills/` is the source of truth. `.cursor/skills/` is a compatibility mirror generated from it.
+- `skills/` is the source of truth
+- `.cursor/skills/` is generated by `scripts/sync-cursor-skills.ps1` when needed
 
 ## Troubleshooting
 
-If the skills load but execution is incomplete, the usual causes are:
+Common causes of incomplete execution:
 
 - OpenSpec CLI is missing
-- the companion OpenSpec skills are not installed
-- retained worktrees are detached, dirty, or attached to `trunk`
-- the repository does not follow the expected idle-branch or task-branch convention
-- `TODO.md` / `DONE.md` does not match the expected lightweight format
+- the required OpenSpec skills are not installed
+- retained worktrees are detached, dirty, or still attached to `trunk`
+- the repo does not follow the expected idle-branch or task-branch convention
+- `TODO.md` and `DONE.md` do not follow the expected lightweight format
 
-For operational detail, see:
+Further reading:
 
+- `references/install-claude-code.md`
+- `references/install-cursor.md`
 - `references/compatibility-matrix.md`
-- skill-specific `references/` directories
-
-## Compatibility Notes
-
-- Primary target: `Claude Code` directory marketplace loading
-- Secondary target: `Cursor` skills compatibility
-- Not included in `0.1.1`: MCP distribution or bundled OpenSpec skills
 
