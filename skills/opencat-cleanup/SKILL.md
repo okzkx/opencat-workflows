@@ -57,9 +57,10 @@ compatibility: Requires a git repository that uses the OpenCat idle-branch/task-
 
 ### 收敛原则
 
-1. **先自动提交，再判断去向**
-   - 只要扫描到未提交变更，就先自动提交到当前逻辑分支，再进入后续判断。
-   - 自动提交的目标是把 worktree 恢复到“有明确分支承载 + 工作区可继续推进”的状态。
+1. **先自动提交，再变基到主干，再判断去向**
+   - 只要扫描到未提交变更，就先自动提交到当前逻辑分支，再变基到最新 `trunk`。
+   - 变基目的是防止分支与主干产生交叉历史（分支交叉）。
+   - 若是任务分支（`opencat/<task-name>`），变基后合并回 `trunk`；若是闲置分支（`opencat/idle/<slot-name>`），变基后保持在闲置分支以保持与主干一致。
    - 推荐提交信息：`chore(opencat-cleanup): checkpoint <slot-or-branch>`
 2. **闲置分支是唯一合法待命状态**
    - 每个保留 worktree slot 都必须有一个一一对应的 `idle branch`，推荐命名为 `opencat/idle/<slot-name>`。
@@ -169,9 +170,19 @@ cleanup 的职责就是把所有非 `idle-ready` 状态最终收敛成：
    - 先根据 active change、最近一次 OpenCat 提交、分支名语义推断其任务名
    - 尽量先把它附着到对应的任务分支，再自动提交
    - 若仍无法可靠映射，创建一个临时恢复任务分支，例如 `opencat/recover/<slot-name>-<shortsha>`，避免继续留在 detached 状态
-3. 自动提交后重新分类：
-   - 若变成任务分支且未合并，转入“继续任务”
-   - 若只是闲置分支上的轻微残留，转入“恢复闲置态”
+3. 自动提交后，**必须将当前分支变基到最新 `trunk`**：
+   - `git fetch` 刷新远端
+   - `git rebase <trunk>` 将当前分支变基到最新主干
+   - 遇到冲突时自行解决并继续 rebase
+   - **目的**：避免分支与主干产生交叉历史
+4. 若当前分支是任务分支（`opencat/<task-name>`），变基后合并回 `trunk`：
+   - 切到主 worktree，执行 `git merge --no-ff “<task_branch>”`
+   - 合并后转入”情况 C”清理该任务分支
+5. 若当前分支是闲置分支（`opencat/idle/<slot-name>`），变基后保持在该分支：
+   - 闲置分支必须始终与 `trunk` 保持一致，避免后续从闲置态领取任务时出现分支交叉
+6. 变基后重新分类：
+   - 若仍有未完成任务，转入”继续任务”
+   - 若只是闲置分支上的轻微残留，转入”恢复闲置态”
 
 ### 情况 B：存在未合并任务提交
 
@@ -207,7 +218,7 @@ cleanup 的职责就是把所有非 `idle-ready` 状态最终收敛成：
 
 1. 确认 worktree 没有未提交改动；若有，先执行情况 A 的自动提交
 2. 将对应 worktree 切回它的 `idle branch`
-3. 让 `idle branch` 对齐最新 `trunk`
+3. 将 `idle branch` 变基到最新 `trunk`（`git rebase <trunk>`），确保闲置分支与主干保持一致，避免分支交叉
 4. 删除对应任务分支
 5. 保留 worktree 目录，不删除目录
 
@@ -236,12 +247,12 @@ cleanup 的职责就是把所有非 `idle-ready` 状态最终收敛成：
 
 1. 先扫描 OpenSpec active changes
 2. 收集所有 worktree、任务分支、闲置分支和未提交改动
-3. 对所有未提交改动先做自动提交
+3. 对所有未提交改动先做自动提交，再变基到最新 `trunk`；若是任务分支则合并回 `trunk`
 4. 若存在未归档 change 或未合并任务，优先启动子 Agent 继续这些任务
 5. 对已合并任务分支执行清理：
    - 删除任务分支
    - 切回对应 `idle branch`
-   - 对齐最新 `trunk`
+   - 将 `idle branch` 变基到最新 `trunk`，确保闲置分支与主干一致
 6. 复查所有保留 worktree，确保都处于 `idle-ready`
 7. 只有当所有保留 worktree 都处于闲置态时，才报告仓库已可进入 TODO List 执行
 

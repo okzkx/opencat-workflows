@@ -1,6 +1,6 @@
 ---
 name: opencat-work
-description: OpenCat 任务列表连续执行器。开始执行前**必须**调用 `opencat-check` 与 `opencat-cleanup`；只有全部保留 worktree 回到闲置分支后才能领取新 TODO，任务执行**必须**通过 `opencat-task` 完成。
+description: OpenCat 任务列表连续执行器。开始执行前**必须**调用 `opencat-check` 与 `opencat-cleanup`，全流程结束时**必须**再调用一次 `opencat-cleanup` 做最终收尾；只有全部保留 worktree 回到闲置分支后才能领取新 TODO，任务执行**必须**通过 `opencat-task` 完成。
 compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` skills to be available in the project.
 ---
 
@@ -49,7 +49,8 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
 - 本技能启动后，固定先执行一次 `check + cleanup`：先 `opencat-check`，再 `opencat-cleanup`。
 - 只有当这次 `check + cleanup` 确认仓库可继续领取新任务后，才允许进入 TODO 选择。
 - 每个具体任务都交给子 Agent 运行 `opencat-task`；主 Agent 只做队列编排、状态管理和最终记录。
-- 每完成一个任务后，再执行一次 `check + cleanup`，确认仓库重新回到“全部闲置、全部干净”状态。
+- 每完成一个任务后，再执行一次 `check + cleanup`，确认仓库重新回到”全部闲置、全部干净”状态。
+- **全流程结束时**（所有可执行任务已完成或确认无更多可执行任务），固定再调用一次 `opencat-cleanup` 做最终收尾，确保仓库以干净状态结束。
 
 当用户明确调用 `opencat-work` 时，默认启用 AI 自主决策：
 
@@ -173,9 +174,15 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
    - 若 SubAgent 仍有未解决卡点，不得追问式恢复；要么继续完成当前任务的可执行部分，要么记录问题后转到下一项可执行任务
    - 默认不等待人工修复；只有仓库已经无法继续推进任何步骤时，才结束本轮并输出已记录问题
 
+9. **全流程结束时的最终清理**
+   - 当所有活跃任务已完成、或确认当前无更多可执行任务时，执行最后一次 `opencat-cleanup`
+   - 确保所有保留 worktree 都回到各自的 `idle branch`，工作区干净
+   - 确保没有残留的任务分支或未合并提交
+   - 输出最终状态报告
+
 ## 核心规则
 
-1. **新任务前必须先 check + cleanup**: 每次执行 `TODO.md` 前，先运行 `opencat-check`，再运行 `opencat-cleanup`
+1. **新任务前必须先 check + cleanup，全流程结束时必须再 cleanup**: 每次执行 `TODO.md` 前，先运行 `opencat-check`，再运行 `opencat-cleanup`；全流程结束时（所有可执行任务已完成或无更多可执行任务），再调用一次 `opencat-cleanup` 做最终收尾
 2. **所有 worktree 全部闲置后才能跑 TODO**: 只要有任意一个保留 worktree 不在 `idle branch` 上，就视为还有旧任务未收尾
 3. **SubAgent 独立执行**: 每个任务由全新 SubAgent 执行，上下文 100% 隔离；每个 SubAgent 都有独立的猫咪身份
 4. **必须使用 opencat-task**: SubAgent 内部通过 `opencat-task` 完成任务
