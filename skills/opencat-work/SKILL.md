@@ -17,6 +17,7 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
 5. **必须**默认自主决断并继续推进；最多记录问题，不因常规不确定性退出、暂停或回头追问用户。
 6. 对”修复”类任务，**必须**重新验证当前现状；严禁仅凭历史 DONE / archive 记录直接跳过。
 7. **必须**为每个 SubAgent 生成独特的猫咪身份，并在 worktree 中设置对应的 Git 用户信息；严禁以通用身份或主 Agent 身份提交代码。
+8. 若执行中发现 `TODO.md` 出现当前流程未创建的新待办项，或仓库里出现任何不明来源的变更，**不能暂停**；必须先把异常变更独立提交收口，再继续原有任务。
 
 ## 🐱 猫咪 SubAgent 身份系统
 
@@ -58,6 +59,7 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
 - 不因常规任务选择而停下来等待确认
 - 若多个候选任务会显著改变范围、行为或风险，且难以判断，子 Agent 不得发问等待确认，必须选择最保守且可继续的方案，记录问题后继续
 - 若任务以“修复”开头，必须重新审视当前代码、行为与仓库状态，不能仅因 `DONE.md`、归档记录或历史实现存在相似项就直接跳过
+- 若执行中冒出未预期的新 TODO 或任何不明来源变更，不视为暂停条件；先做独立 Git 提交收口，再继续当前任务链
 
 ## 文件格式
 
@@ -134,7 +136,7 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
    - 进入本步骤时，仓库应当已经完成本轮 `check + cleanup`，处于“主 worktree 干净 + 所有保留 worktree 处于闲置分支”的状态
    - 若当前候选任务之前还不是活跃任务，此时再标记为活跃任务：`- > 任务A`
    - **禁止**对未激活章节中的普通任务自动补 `>`；只有任务已属于某个活跃章节，或它本身已经显式带 `>`，才允许进入领取步骤
-   - 若在标记或准备启动 SubAgent 的过程中又出现新的脏改动、任务分支或非闲置 worktree，重新执行一次 `check + cleanup`
+  - 若在标记或准备启动 SubAgent 的过程中又出现新的脏改动、任务分支或非闲置 worktree，先判断是否属于当前流程预期产物；凡是不明来源变更或未预期新 TODO，一律先做独立 Git 提交收口，再重新执行一次 `check + cleanup`
    - `opencat-work` 自己不再发明额外的环境检查和工程收尾流程；统一交给这套 `check + cleanup` 入口
 
 5. **执行任务**
@@ -208,6 +210,7 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
 25. **修复任务必须重审**: 凡是”修复”开头的任务，都必须重新核对当前行为、代码与历史提交，不能仅凭归档 / DONE 存在相似项就跳过
 26. **子 Agent 禁止提问卡住**: 子 Agent 必须全程自己执行；若遇到难以判断的情况，选择最保守可继续路径并记录原因，禁止向主 Agent 发问等待确认
 27. **默认记录问题后继续**: 无论是 cleanup 还是 task 执行，只要仍有可继续步骤，就先记录异常并继续，不因常规不确定性暂停
+28. **异常变更先提交再续跑**: 若出现当前流程未创建的新 TODO 或任何不明来源变更，必须先用独立 Git 提交收口，再继续原任务，禁止因此暂停
 
 ## 输出格式
 
@@ -240,5 +243,6 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
 - 支持断点恢复（从中断处继续）
 - 支持 `/clear` 后继续，状态保存在文件中
 - 默认先完成可执行部分，再把剩余问题写入记录；不要因为常规异常等待人工修复
+- 若运行中出现未预期新 TODO 或不明来源变更，先做独立提交收口，再继续；不要因此停下来等待确认
 - 文件格式保持简洁
 - 遇到冲突时不暂停询问，默认 rebase 到最新提交并自行解决冲突
