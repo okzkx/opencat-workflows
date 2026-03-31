@@ -258,9 +258,10 @@ git rebase <base_branch>
 
 调用 `openspec-archive-change` skill。
 
-生成中文报告 `change-report.zh-CN.md`，至少包含：
+在项目目录下生成中文报告 `.claude/docs/opencat/<change-name>-<timestamp>.md`，文件名只包含 `change-name` 和时间，避免不同任务互相覆盖。报告至少包含：
 
 - 基本信息
+- 执行者身份信息（姓名、品种、职业、经历、性格、口头禅、邮箱）
 - 变更动机
 - 变更范围
 - 规格影响
