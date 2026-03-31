@@ -1,60 +1,99 @@
 # OpenCat Workflows
 
-```
+```text
  /\_/\___________________________________________________________ __
-( o.o )___________________________________________________________) 
+( o.o )___________________________________________________________)
 ```
 
 [English](README.md) | [简体中文](doc/README.zh-CN.md)
 
-Reusable workflow skills for `Claude Code` and `Cursor`, focused on three things:
+`OpenCat Workflows` is a reusable workflow package for `Claude Code` and `Cursor`.
+Version `0.1.7` standardizes the current execution model around five skills:
 
-- checking repository prerequisites before execution
-- isolating each task in reusable `git worktree` slots
-- converging back to a clean idle state after each run
+- `opencat-check` for environment and topology readiness
+- `opencat-cleanup` for residue recovery and idle-state convergence
+- `opencat-task` for one isolated OpenSpec change flow
+- `opencat-work` for serial `TODO.md` execution
+- `opencat-agent` for cat identity generation used by task subagents
 
-This package does not bundle OpenSpec itself. `opencat-task` and `opencat-work` expect OpenSpec CLI and the related OpenSpec skills to already exist in the target environment.
+This package does not bundle OpenSpec itself. Full task execution still depends on external OpenSpec CLI and OpenSpec skills being available in the target environment.
 
 ## Included Skills
 
-| Skill | Purpose |
+| Skill | Role in `0.1.7` |
 |------|------|
-| `opencat-check` | Verify tools, package manager, OpenSpec availability, and worktree topology |
-| `opencat-cleanup` | Recover interrupted work and return retained worktrees to a safe idle state |
-| `opencat-task` | Execute one change through purpose, apply, archive, merge, and cleanup |
-| `opencat-work` | Execute activated `TODO.md` items serially through child agents and isolated worktrees |
+| `opencat-check` | Verifies Git, Node.js, package manager, OpenSpec availability, and retained worktree topology |
+| `opencat-cleanup` | Finishes interrupted work safely and returns retained worktrees to their paired `opencat/idle/<slot-name>` branches |
+| `opencat-task` | Runs one OpenSpec task through propose, apply, archive, merge, and final cleanup in an isolated worktree |
+| `opencat-work` | Reads activated items from `TODO.md`, creates one task subagent at a time, and delegates real execution to `opencat-task` |
+| `opencat-agent` | Generates or reuses a cat persona, persists it as an Agent file, and provides Git identity for the task subagent |
+
+## Execution Model
+
+### Standalone Task
+
+Use this when you already know the exact change name.
+
+1. Run `opencat-check`
+2. Run `opencat-task <change-name>`
+3. Let `opencat-task` call `opencat-cleanup` at the start and end of the flow
+
+`opencat-task` is the executor. `opencat-check` is the readiness gate.
+
+### TODO Queue
+
+Use this when work should be pulled from `TODO.md`.
+
+1. Run `opencat-work`
+2. `opencat-work` runs `opencat-check`
+3. `opencat-work` runs `opencat-cleanup`
+4. `opencat-work` selects one activated task
+5. `opencat-work` calls `opencat-agent` to generate or reuse a cat identity
+6. The task subagent runs `opencat-task`
+7. `opencat-work` updates `TODO.md` and `DONE.md`
+8. `opencat-work` finishes with one more `opencat-cleanup`
+
+Only one task subagent is allowed at a time. Queue execution is intentionally serial.
 
 ## Requirements
 
-Before using `opencat-task` or `opencat-work`, make sure the target repository has:
+Before using `opencat-task` or `opencat-work`, the target repository should provide:
 
 - Git on `PATH`
 - Node.js on `PATH`
 - the repository's preferred package manager
-- OpenSpec CLI available directly or through `npx openspec@latest`
-- the external OpenSpec skills required by `opencat-task`
+- OpenSpec CLI directly or through `npx openspec@latest`
+- the OpenSpec skills required by the task flow
+- a detectable `trunk` branch such as `main` or `master`
+
+For best results, the repository should also follow these conventions:
+
+- retained worktree slots that can be reused
+- idle branches named like `opencat/idle/<slot-name>`
+- task branches named like `opencat/<change-name>`
+- lightweight `TODO.md` and `DONE.md` files when `opencat-work` is used
 
 ## Install
 
 ### Claude Code
 
-1. Place `opencat-workflows/` under your local `custom-plugins` marketplace root.
-2. Add or verify `"source": "./opencat-workflows"` in `custom-plugins/.claude-plugin/marketplace.json`.
-3. Run `claude plugin install opencat-workflows@custom-plugins`.
-4. Confirm `/opencat-workflows:opencat-check` and the other namespaced skills are visible.
+1. Place `opencat-workflows/` under your local `custom-plugins` marketplace root
+2. Add or verify `"source": "./opencat-workflows"` in `custom-plugins/.claude-plugin/marketplace.json`
+3. Run `claude plugin install opencat-workflows@custom-plugins`
+4. Confirm `/opencat-workflows:opencat-check`, `/opencat-workflows:opencat-cleanup`, `/opencat-workflows:opencat-task`, `/opencat-workflows:opencat-work`, and `/opencat-workflows:opencat-agent` are visible
 
 Detailed notes: `references/install-claude-code.md`
 
 ### Cursor
 
-1. Run `scripts/sync-cursor-skills.ps1` to generate the `.cursor/skills/` mirror from canonical `skills/`.
-2. Copy the generated `.cursor/skills/` directory into the target repository.
-3. Reload Cursor if the skills do not appear immediately.
-4. Confirm `opencat-check`, `opencat-cleanup`, `opencat-task`, and `opencat-work` are discoverable.
+1. Run `scripts/sync-cursor-skills.ps1` to generate the `.cursor/skills/` mirror from canonical `skills/`
+2. Copy the generated `.cursor/skills/` directory into the target repository
+3. Reload Cursor if the skills do not appear immediately
+4. Confirm `opencat-check`, `opencat-cleanup`, `opencat-task`, `opencat-work`, and `opencat-agent` are discoverable
 
 Detailed notes: `references/install-cursor.md`
 
-## Basic Usage
+## Basic Commands
 
 ```text
 /opencat-workflows:opencat-check
@@ -63,19 +102,16 @@ Detailed notes: `references/install-cursor.md`
 /opencat-workflows:opencat-work
 ```
 
-- Use `opencat-check` before touching a repository
-- Use `opencat-cleanup` when retained worktrees or old task branches were left behind
-- Use `opencat-task` when you already know the exact change to execute
-- Use `opencat-work` when you want to drive work from `TODO.md`
+`opencat-agent` normally runs as an internal dependency of `opencat-work`, not as the main entrypoint for users.
 
-## TODO Activation Rules
+## TODO and DONE Conventions
 
 `opencat-work` only executes explicitly activated items.
 
-- `## P1 >` means that section is allowed to feed the execution queue
-- `- > Task A` means that task is explicitly marked as the current task
-- if a section has no `>` and the task line has no `>`, that item is backlog only
-- backlog items must not be auto-activated or auto-executed by `opencat-work`
+- `## P1 >` means the whole section is active
+- `- > Task A` means that single task is active
+- items without `>` remain backlog only
+- backlog items must not be auto-activated or auto-executed
 
 Example:
 
@@ -92,12 +128,28 @@ Example:
 
 In this example, `Task A` and `Task B` are runnable. `Backlog Task C` is not.
 
-## Recommended Flow
+`DONE.md` records the finisher identity produced by `opencat-agent`:
+
+```markdown
+- [2026-03-31 14:20] Task A — completed — 🐱 PixelCat (Interface Mage · Ragdoll)
+```
+
+## Recommended Flows
+
+### One Explicit Change
 
 1. Run `opencat-check`
-2. Run `opencat-cleanup` if the repo is not idle-ready
-3. Run `opencat-task <change-name>` for one explicit change, or activate a `TODO.md` section and run `opencat-work`
-4. If you changed canonical skills, regenerate the Cursor mirror before validating there
+2. Run `opencat-task <change-name>`
+3. Let the task flow finish its own cleanup
+
+### Serial TODO Execution
+
+1. Mark an active section or task in `TODO.md`
+2. Run `opencat-work`
+3. Wait for the serial queue to finish
+4. Review `DONE.md`
+
+If you changed canonical skills, regenerate the Cursor mirror before validating there.
 
 ## Repository Layout
 
@@ -113,17 +165,19 @@ opencat-workflows/
 ```
 
 - `skills/` is the source of truth
-- `.cursor/skills/` is generated by `scripts/sync-cursor-skills.ps1` when needed
+- `.cursor/skills/` is a generated compatibility mirror
+- `skills/opencat-work/template/` contains the reference `TODO.md` and `DONE.md` templates
 
 ## Troubleshooting
 
-Common causes of incomplete execution:
+Common causes of incomplete or blocked execution:
 
 - OpenSpec CLI is missing
 - the required OpenSpec skills are not installed
-- retained worktrees are detached, dirty, or still attached to `trunk`
-- the repo does not follow the expected idle-branch or task-branch convention
-- `TODO.md` and `DONE.md` do not follow the expected lightweight format
+- retained worktrees are dirty, detached, or still parked on `trunk`
+- the repository does not follow the expected idle-branch or task-branch conventions
+- `TODO.md` contains only backlog items and no activated tasks
+- `DONE.md` does not follow the lightweight append-only record format
 
 Further reading:
 
