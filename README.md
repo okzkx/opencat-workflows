@@ -8,7 +8,7 @@
 [English](README.md) | [简体中文](doc/README.zh-CN.md)
 
 `OpenCat Workflows` is a reusable workflow package for `Claude Code` and `Cursor`.
-Version `0.1.7` standardizes the current execution model around five skills:
+Version `0.1.11` standardizes the current execution model around five skills:
 
 - `opencat-check` for environment and topology readiness
 - `opencat-cleanup` for residue recovery and idle-state convergence
@@ -20,7 +20,7 @@ This package does not bundle OpenSpec itself. Full task execution still depends 
 
 ## Included Skills
 
-| Skill | Role in `0.1.7` |
+| Skill | Role in `0.1.11` |
 |------|------|
 | `opencat-check` | Verifies Git, Node.js, package manager, OpenSpec availability, and retained worktree topology |
 | `opencat-cleanup` | Finishes interrupted work safely and returns retained worktrees to their paired `opencat/idle/<slot-name>` branches |
@@ -112,6 +112,8 @@ Detailed notes: `references/install-cursor.md`
 - `- > Task A` means that single task is active
 - items without `>` remain backlog only
 - backlog items must not be auto-activated or auto-executed
+- section activation markers are read-only for `opencat-work`
+- task activation markers may be managed by `opencat-work` inside an already active section to indicate the current task
 
 Example:
 
