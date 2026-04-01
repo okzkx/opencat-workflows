@@ -7,7 +7,7 @@
 
 `OpenCat Workflows` 为 `Claude Code` 和 `Cursor` 提供一组可复用的工作流技能。
 推荐优先以 `Claude Code` 插件形式安装；如果当前环境无法通过 marketplace 安装，也可以把 `skills/` 下的技能目录直接复制到自己的技能目录中作为降级方案。
-从 `0.1.18` 开始，项目以 5 个技能组成当前稳定执行模型：
+从 `0.1.19` 开始，项目以 5 个技能组成当前稳定执行模型：
 
 - `opencat-check` 负责环境与拓扑就绪检查
 - `opencat-cleanup` 负责残留收尾与空闲态归还
@@ -19,7 +19,7 @@
 
 ## 内置技能
 
-| 技能 | `0.1.18` 中的职责 |
+| 技能 | `0.1.19` 中的职责 |
 |------|------|
 | `opencat-check` | 检查 Git、Node.js、包管理器、OpenSpec 可用性，以及保留 worktree 拓扑是否健康 |
 | `opencat-cleanup` | 收尾中断任务，并把保留 worktree 恢复到各自配对的 `opencat/idle/<slot-name>` 分支 |
@@ -159,10 +159,10 @@ Cursor 也可以直接消费标准 `skills/`：
 
 在这个例子里，`任务A` 和 `任务B` 可执行，`积压任务C` 不可执行。
 
-`DONE.md` 会记录由 `opencat-agent` 生成的执行者身份：
+`DONE.md` 使用由 `opencat-work` 追加的轻量归档记录；如果没有单独指定路径，归档文档默认放在 `.claude/docs/opencat/` 下：
 
 ```markdown
-- [2026-03-31 14:20] 任务A — 已完成 — 🐱 像素猫（界面魔法师·布偶猫）
+[2026-03-31 14:20] 任务A-.claude/docs/opencat/task-a-20260331-1420.md
 ```
 
 ## 推荐流程

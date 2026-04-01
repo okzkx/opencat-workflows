@@ -42,10 +42,9 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
    - 身份信息（姓名、品种、职业、经历、性格、口头禅、邮箱）
    - Git 配置命令
    - SubAgent Prompt 注入片段
-   - DONE.md 署名片段
 3. 主 Agent 使用返回的 Prompt 注入片段启动 SubAgent
 4. SubAgent 在 worktree 中设置 Git 身份并执行任务
-5. 任务完成后，使用返回的署名片段写入 `DONE.md`
+5. 任务完成后，将归档文档路径写入 `DONE.md`；若无特殊说明，归档文档默认放在 `.claude/docs/opencat/` 下
 
 ### 本技能维护的约束
 
@@ -53,7 +52,8 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
 |------|------|
 | 身份唯一性 | 同一会话中禁止复用同一只猫；调用 `opencat-agent` 时传入已使用的猫咪姓名列表 |
 | Git 身份隔离 | SubAgent 必须在 worktree 中使用猫咪身份的 `git config`，禁止通用身份 |
-| 署名必填 | `DONE.md` 记录必须包含猫咪署名：`🐱 姓名（职业·品种）` |
+| DONE 记录格式固定 | `DONE.md` 每次只能在文件末尾新增一行：`[时间] 任务内容-归档文档路径` |
+| 归档目录默认值 | 若任务未单独指定归档位置，归档文档路径默认写为 `.claude/docs/opencat/<归档文件名>.md` |
 
 ## 调用约定
 
@@ -97,14 +97,9 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
 ```markdown
 # DONE
 
-## P1
-- [2026-03-29 14:30] 实现用户登录功能 — 完成页面和接口对接，登录跳转正常 — 🐱 雪球（前端魔法师·布偶猫）
-
-## P2
-- [2026-03-29 15:10] 编写登录模块单元测试 — 所有测试通过 — 🐱 墨墨（质量守卫·虎斑猫）
-
-## P3
-- [2026-03-29 16:00] 部署到测试环境 — 🐱 总裁（部署指挥官·狸花猫）
+[2026-03-29 14:30] 实现用户登录功能-.claude/docs/opencat/2026-03-29-login.md
+[2026-03-29 15:10] 编写登录模块单元测试-.claude/docs/opencat/2026-03-29-login-tests.md
+[2026-03-29 16:00] 部署到测试环境-.claude/docs/opencat/2026-03-29-deploy-test.md
 ```
 
 ## 解析规则
@@ -178,7 +173,8 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
    - 从 `TODO.md` 删除已完成任务行
    - 除删除已完成任务行外，保持章节标题原样；任务行上的 `>` 可按队列推进需要维护，但不得越过章节激活边界
    - 保存 `TODO.md` 前，必须再次校验所有章节标题与改写前逐字一致；若发现 `## P1 >` 被错误改成 `## P1` 之类的变化，立即撤销该次写回并改用更小粒度的任务行编辑
-   - 在 `DONE.md` 对应章节追加记录：`- [时间] 任务名称 — 执行结果 — 🐱 猫咪姓名（职业·品种）`
+  - 在 `DONE.md` 文件末尾新增一行记录：`[时间] 任务名称-归档文档路径`
+  - 若任务未明确指定归档位置，默认使用 `.claude/docs/opencat/` 作为归档目录
    - 提交 git：`完成: 任务名称`（使用执行该任务的猫咪身份提交）
 
 7. **继续下一个**

@@ -9,7 +9,7 @@
 
 `OpenCat Workflows` is a reusable workflow package for `Claude Code` and `Cursor`.
 The recommended distribution model is to install it as a `Claude Code` plugin. If marketplace installation is not available in your environment, you can copy the directories under `skills/` into your own skills folder as a fallback.
-Version `0.1.18` standardizes the current execution model around five skills:
+Version `0.1.19` standardizes the current execution model around five skills:
 
 - `opencat-check` for environment and topology readiness
 - `opencat-cleanup` for residue recovery and idle-state convergence
@@ -21,7 +21,7 @@ This package does not bundle OpenSpec itself. Full task execution still depends 
 
 ## Included Skills
 
-| Skill | Role in `0.1.18` |
+| Skill | Role in `0.1.19` |
 |------|------|
 | `opencat-check` | Verifies Git, Node.js, package manager, OpenSpec availability, and retained worktree topology |
 | `opencat-cleanup` | Finishes interrupted work safely and returns retained worktrees to their paired `opencat/idle/<slot-name>` branches |
@@ -161,10 +161,10 @@ Example:
 
 In this example, `Task A` and `Task B` are runnable. `Backlog Task C` is not.
 
-`DONE.md` records the finisher identity produced by `opencat-agent`:
+`DONE.md` uses a lightweight append-only archive record written by `opencat-work`. If no custom path is specified, the archive document should live under `.claude/docs/opencat/`:
 
 ```markdown
-- [2026-03-31 14:20] Task A — completed — 🐱 PixelCat (Interface Mage · Ragdoll)
+[2026-03-31 14:20] Task A-.claude/docs/opencat/task-a-20260331-1420.md
 ```
 
 ## Recommended Flows

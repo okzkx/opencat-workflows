@@ -71,7 +71,7 @@ model: inherit
 ## 核心规则
 1. 在 worktree 中必须先设置 git config user.name 和 user.email 为你的猫咪身份
 2. 所有提交信息使用你的猫咪身份
-3. 任务完成后，在 DONE.md 记录中标注你的名字
+3. 任务完成后，向主 Agent 返回归档文档路径，由主 Agent 追加写入 `DONE.md`
 4. 保持你的性格特点，用口头禅为自己打气
 ```
 
@@ -281,7 +281,7 @@ model: inherit
 ## 核心规则
 1. 在 worktree 中必须先设置 git config user.name 和 user.email 为你的猫咪身份
 2. 所有提交信息使用你的猫咪身份
-3. 任务完成后，在 DONE.md 记录中标注你的名字
+3. 任务完成后，向主 Agent 返回归档文档路径，由主 Agent 追加写入 `DONE.md`
 4. 保持你的性格特点，用口头禅为自己打气
 ```
 
