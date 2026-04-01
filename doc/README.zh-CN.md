@@ -6,7 +6,8 @@
 ```
 
 `OpenCat Workflows` 为 `Claude Code` 和 `Cursor` 提供一组可复用的工作流技能。
-从 `0.1.15` 开始，项目以 5 个技能组成当前稳定执行模型：
+推荐优先以 `Claude Code` 插件形式安装；如果当前环境无法通过 marketplace 安装，也可以把 `skills/` 下的技能目录直接复制到自己的技能目录中作为降级方案。
+从 `0.1.16` 开始，项目以 5 个技能组成当前稳定执行模型：
 
 - `opencat-check` 负责环境与拓扑就绪检查
 - `opencat-cleanup` 负责残留收尾与空闲态归还
@@ -18,7 +19,7 @@
 
 ## 内置技能
 
-| 技能 | `0.1.15` 中的职责 |
+| 技能 | `0.1.16` 中的职责 |
 |------|------|
 | `opencat-check` | 检查 Git、Node.js、包管理器、OpenSpec 可用性，以及保留 worktree 拓扑是否健康 |
 | `opencat-cleanup` | 收尾中断任务，并把保留 worktree 恢复到各自配对的 `opencat/idle/<slot-name>` 分支 |
@@ -76,21 +77,29 @@
 
 ### Claude Code
 
+推荐方式：
+
 1. 将 `opencat-workflows/` 放到本地 `custom-plugins` marketplace 根目录下
 2. 在 `custom-plugins/.claude-plugin/marketplace.json` 中加入或确认 `"source": "./opencat-workflows"`
 3. 运行 `claude plugin install opencat-workflows@custom-plugins`
 4. 确认 `/opencat-workflows:opencat-check`、`/opencat-workflows:opencat-cleanup`、`/opencat-workflows:opencat-task`、`/opencat-workflows:opencat-work` 和 `/opencat-workflows:opencat-agent` 都已可见
 
+无法通过插件方式安装时，可退回到复制技能目录：
+
+1. 将 `skills/` 下每个技能目录复制到自己的技能目录，例如 `~/.claude/skills/`
+2. 保持目录名不变，例如 `skills/opencat-task/` -> `~/.claude/skills/opencat-task/`
+3. 重载客户端后确认技能已可发现
+
 详细说明见：`references/install-claude-code.md`
 
 ### Cursor
 
-1. 先运行 `scripts/sync-cursor-skills.ps1`，从标准 `skills/` 生成 `.cursor/skills/` 镜像
-2. 将生成出的 `.cursor/skills/` 复制到目标仓库
+Cursor 也可以直接消费标准 `skills/`：
+
+1. 将 `skills/` 下每个技能目录复制到目标仓库的 `.cursor/skills/`
+2. 保持原始目录名，避免技能发现路径变化
 3. 如果技能没有立即出现，重新加载 Cursor
 4. 确认 `opencat-check`、`opencat-cleanup`、`opencat-task`、`opencat-work` 和 `opencat-agent` 都已可发现
-
-详细说明见：`references/install-cursor.md`
 
 ## 基本命令
 
@@ -152,7 +161,11 @@
 3. 等待串行队列执行完成
 4. 查看 `DONE.md`
 
-如果改动了标准技能文件，验证 Cursor 前请先重新生成镜像。
+如果改动了标准技能文件，验证 Cursor 前请先重新复制更新后的技能目录。
+
+## 参考项目
+
+- [`fly-cat`](https://github.com/okzkx/fly-cat)：实际集成 `opencat-check` 与 `opencat-task` 的参考项目，也展示了插件优先的安装方式
 
 ## 仓库结构
 
@@ -168,7 +181,7 @@ opencat-workflows/
 ```
 
 - `skills/` 是事实来源
-- `.cursor/skills/` 是按需生成的兼容镜像
+- `.cursor/skills/` 在需要兼容 Cursor 时可直接放入从标准技能目录复制出的副本
 - `skills/opencat-work/template/` 中提供参考用的 `TODO.md` 与 `DONE.md` 模板
 
 ## 故障排查
@@ -185,5 +198,4 @@ opencat-workflows/
 更多说明见：
 
 - `references/install-claude-code.md`
-- `references/install-cursor.md`
 - `references/compatibility-matrix.md`

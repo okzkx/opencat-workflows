@@ -8,7 +8,8 @@
 [English](README.md) | [简体中文](doc/README.zh-CN.md)
 
 `OpenCat Workflows` is a reusable workflow package for `Claude Code` and `Cursor`.
-Version `0.1.15` standardizes the current execution model around five skills:
+The recommended distribution model is to install it as a `Claude Code` plugin. If marketplace installation is not available in your environment, you can copy the directories under `skills/` into your own skills folder as a fallback.
+Version `0.1.16` standardizes the current execution model around five skills:
 
 - `opencat-check` for environment and topology readiness
 - `opencat-cleanup` for residue recovery and idle-state convergence
@@ -20,7 +21,7 @@ This package does not bundle OpenSpec itself. Full task execution still depends 
 
 ## Included Skills
 
-| Skill | Role in `0.1.15` |
+| Skill | Role in `0.1.16` |
 |------|------|
 | `opencat-check` | Verifies Git, Node.js, package manager, OpenSpec availability, and retained worktree topology |
 | `opencat-cleanup` | Finishes interrupted work safely and returns retained worktrees to their paired `opencat/idle/<slot-name>` branches |
@@ -78,21 +79,29 @@ For best results, the repository should also follow these conventions:
 
 ### Claude Code
 
+Recommended path:
+
 1. Place `opencat-workflows/` under your local `custom-plugins` marketplace root
 2. Add or verify `"source": "./opencat-workflows"` in `custom-plugins/.claude-plugin/marketplace.json`
 3. Run `claude plugin install opencat-workflows@custom-plugins`
 4. Confirm `/opencat-workflows:opencat-check`, `/opencat-workflows:opencat-cleanup`, `/opencat-workflows:opencat-task`, `/opencat-workflows:opencat-work`, and `/opencat-workflows:opencat-agent` are visible
 
+Fallback path:
+
+1. Copy each directory under `skills/` into your own skills folder, such as `~/.claude/skills/`
+2. Keep the original folder names, for example `skills/opencat-task/` -> `~/.claude/skills/opencat-task/`
+3. Reload the client and confirm the skills are discoverable
+
 Detailed notes: `references/install-claude-code.md`
 
 ### Cursor
 
-1. Run `scripts/sync-cursor-skills.ps1` to generate the `.cursor/skills/` mirror from canonical `skills/`
-2. Copy the generated `.cursor/skills/` directory into the target repository
+Cursor can consume the same canonical skills directly:
+
+1. Copy each directory under `skills/` into the target repository's `.cursor/skills/`
+2. Keep the original folder names so discovery remains stable
 3. Reload Cursor if the skills do not appear immediately
 4. Confirm `opencat-check`, `opencat-cleanup`, `opencat-task`, `opencat-work`, and `opencat-agent` are discoverable
-
-Detailed notes: `references/install-cursor.md`
 
 ## Basic Commands
 
@@ -154,7 +163,11 @@ In this example, `Task A` and `Task B` are runnable. `Backlog Task C` is not.
 3. Wait for the serial queue to finish
 4. Review `DONE.md`
 
-If you changed canonical skills, regenerate the Cursor mirror before validating there.
+If you changed canonical skills, copy the updated skill directories again before validating them in Cursor.
+
+## Reference Project
+
+- [`fly-cat`](https://github.com/okzkx/fly-cat): a real project that integrates `opencat-check` and `opencat-task` into its OpenCat workflow and documents the plugin-first installation path
 
 ## Repository Layout
 
@@ -170,7 +183,7 @@ opencat-workflows/
 ```
 
 - `skills/` is the source of truth
-- `.cursor/skills/` is a generated compatibility mirror
+- `.cursor/skills/` can consume copies of the canonical skill directories when Cursor integration is needed
 - `skills/opencat-work/template/` contains the reference `TODO.md` and `DONE.md` templates
 
 ## Troubleshooting
@@ -187,6 +200,5 @@ Common causes of incomplete or blocked execution:
 Further reading:
 
 - `references/install-claude-code.md`
-- `references/install-cursor.md`
 - `references/compatibility-matrix.md`
 

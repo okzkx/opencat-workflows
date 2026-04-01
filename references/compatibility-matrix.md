@@ -2,8 +2,9 @@
 
 | Target | Status | Notes |
 |------|------|------|
-| Claude Code directory marketplace loading | Supported | Install through `custom-plugins` and `claude plugin install opencat-workflows@custom-plugins` |
-| Cursor skills loading | Supported | Uses a generated `.cursor/skills/` mirror built from canonical `skills/` |
+| Claude Code directory marketplace loading | Recommended | Prefer `custom-plugins` plus `claude plugin install opencat-workflows@custom-plugins` |
+| Direct Claude skills copy | Supported | Fallback path: copy canonical folders from `skills/` into `~/.claude/skills/` |
+| Cursor skills loading | Supported | Copy canonical folders from `skills/` into `.cursor/skills/` when needed |
 | OpenSpec CLI | Required externally | Not bundled in this package |
 | OpenSpec skills | Required for full task flow | `openspec-propose`, `openspec-apply-change`, `openspec-archive-change` |
 | MCP distribution | Not included | Out of scope for this package |
@@ -25,3 +26,4 @@ The target repository should ideally have:
 - the package manager cannot be inferred from lockfiles
 - OpenSpec is missing from `PATH` and unavailable through `npx`
 - the user expects this package to bundle OpenSpec behavior directly
+- the user expects Cursor-only mirror files even though canonical `skills/` is now the preferred fallback source

@@ -12,6 +12,16 @@
 
 - 暂无
 
+## [0.1.16] - 2026-04-01
+
+### Changed
+
+- 将插件版本提升到 `0.1.16`
+- 同步更新中英文说明中的稳定执行模型版本标识到 `0.1.16`
+- 推荐优先以 `Claude Code` 插件形式安装 `opencat-workflows`，并补充“无法通过 marketplace 安装时直接复制 `skills/`”的降级说明
+- 在中英文说明和安装参考中加入 [`fly-cat`](https://github.com/okzkx/fly-cat) 作为实际集成参考项目
+- 清理失效的 `references/install-cursor.md` 文档引用，统一改为直接说明标准 `skills/` 的复制方式
+
 ## [0.1.15] - 2026-04-01
 
 ### Changed

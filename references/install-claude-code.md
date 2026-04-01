@@ -10,6 +10,15 @@
    - `/opencat-workflows:opencat-cleanup`
    - `/opencat-workflows:opencat-task`
    - `/opencat-workflows:opencat-work`
+   - `/opencat-workflows:opencat-agent`
+
+This plugin-based install path is the recommended way to distribute `opencat-workflows`.
+
+## Fallback Without Marketplace Install
+
+1. Copy each directory under `skills/` into your local skills directory, such as `~/.claude/skills/`
+2. Keep the original folder names unchanged
+3. Reload Claude Code and verify the copied skills appear in `/help`
 
 ## Validate The Package
 
@@ -17,6 +26,10 @@
 - the marketplace manifest points to `./opencat-workflows`
 - each skill exists at `skills/<skill-name>/SKILL.md`
 - the namespaced commands appear after installation
+
+## Reference Project
+
+- [`fly-cat`](https://github.com/okzkx/fly-cat) documents the plugin-first setup and uses the workflow package in a real repository
 
 ## Recommended First Run
 
