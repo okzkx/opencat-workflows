@@ -8,7 +8,7 @@
 [English](README.md) | [简体中文](doc/README.zh-CN.md)
 
 `OpenCat Workflows` is a reusable workflow package for `Claude Code` and `Cursor`.
-Version `0.1.11` standardizes the current execution model around five skills:
+Version `0.1.12` standardizes the current execution model around five skills:
 
 - `opencat-check` for environment and topology readiness
 - `opencat-cleanup` for residue recovery and idle-state convergence
@@ -20,12 +20,12 @@ This package does not bundle OpenSpec itself. Full task execution still depends 
 
 ## Included Skills
 
-| Skill | Role in `0.1.11` |
+| Skill | Role in `0.1.12` |
 |------|------|
 | `opencat-check` | Verifies Git, Node.js, package manager, OpenSpec availability, and retained worktree topology |
 | `opencat-cleanup` | Finishes interrupted work safely and returns retained worktrees to their paired `opencat/idle/<slot-name>` branches |
 | `opencat-task` | Runs one OpenSpec task through propose, apply, archive, merge, and final cleanup in an isolated worktree |
-| `opencat-work` | Reads activated items from `TODO.md`, creates one task subagent at a time, and delegates real execution to `opencat-task` |
+| `opencat-work` | Reads activated items from `TODO.md`, creates one task subagent at a time, delegates real execution to `opencat-task`, then finalizes the queue with cleanup and repository publish |
 | `opencat-agent` | Generates or reuses a cat persona, persists it as an Agent file, and provides Git identity for the task subagent |
 
 ## Execution Model
@@ -52,6 +52,7 @@ Use this when work should be pulled from `TODO.md`.
 6. The task subagent runs `opencat-task`
 7. `opencat-work` updates `TODO.md` and `DONE.md`
 8. `opencat-work` finishes with one more `opencat-cleanup`
+9. After final cleanup, `opencat-work` performs the final repository `git commit` and `git push` when needed
 
 Only one task subagent is allowed at a time. Queue execution is intentionally serial.
 

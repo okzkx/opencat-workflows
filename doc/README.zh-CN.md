@@ -6,7 +6,7 @@
 ```
 
 `OpenCat Workflows` 为 `Claude Code` 和 `Cursor` 提供一组可复用的工作流技能。
-从 `0.1.11` 开始，项目以 5 个技能组成当前稳定执行模型：
+从 `0.1.12` 开始，项目以 5 个技能组成当前稳定执行模型：
 
 - `opencat-check` 负责环境与拓扑就绪检查
 - `opencat-cleanup` 负责残留收尾与空闲态归还
@@ -18,12 +18,12 @@
 
 ## 内置技能
 
-| 技能 | `0.1.11` 中的职责 |
+| 技能 | `0.1.12` 中的职责 |
 |------|------|
 | `opencat-check` | 检查 Git、Node.js、包管理器、OpenSpec 可用性，以及保留 worktree 拓扑是否健康 |
 | `opencat-cleanup` | 收尾中断任务，并把保留 worktree 恢复到各自配对的 `opencat/idle/<slot-name>` 分支 |
 | `opencat-task` | 在独立 worktree 中执行单个 OpenSpec 任务的 propose、apply、archive、merge 和最终 cleanup |
-| `opencat-work` | 读取 `TODO.md` 中已激活的任务，串行创建任务子 Agent，并把真实执行委托给 `opencat-task` |
+| `opencat-work` | 读取 `TODO.md` 中已激活的任务，串行创建任务子 Agent，把真实执行委托给 `opencat-task`，并在队列结束后统一做 cleanup 与仓库发布 |
 | `opencat-agent` | 生成或复用猫咪身份，持久化为 Agent 文件，并为任务子 Agent 提供 Git 身份 |
 
 ## 执行模型
@@ -50,6 +50,7 @@
 6. 任务子 Agent 运行 `opencat-task`
 7. `opencat-work` 回写 `TODO.md` 与 `DONE.md`
 8. 全流程结束后，`opencat-work` 再执行一次 `opencat-cleanup`
+9. 最终 cleanup 之后，`opencat-work` 会在需要时统一执行最终的仓库 `git commit` 与 `git push`
 
 同一时刻只允许存在一个任务子 Agent，队列执行始终是串行的。
 

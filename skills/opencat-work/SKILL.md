@@ -19,6 +19,7 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
 7. 对”修复”类任务，**必须**重新验证当前现状；严禁仅凭历史 DONE / archive 记录直接跳过。
 8. **必须**为每个 SubAgent 生成独特的猫咪身份，并在 worktree 中设置对应的 Git 用户信息；严禁以通用身份或主 Agent 身份提交代码。
 9. 若执行中发现 `TODO.md` 出现当前流程未创建的新待办项，或仓库里出现任何不明来源的变更，**不能暂停**；必须先把异常变更独立提交收口，再继续原有任务。
+10. **必须**在全流程最终 `cleanup` 之后执行一次主分支 Git 收口：若主 worktree 仍有未提交改动则自动提交，随后将当前 `base_branch` 推送到默认远端；若只有未推送提交，也必须执行 push。
 
 ## 🐱 猫咪 SubAgent 身份系统
 
@@ -53,6 +54,7 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
 - 每个具体任务都交给子 Agent 运行 `opencat-task`；主 Agent 只做队列编排、状态管理和最终记录。
 - 每完成一个任务后，再执行一次 `check + cleanup`，确认仓库重新回到”全部闲置、全部干净”状态。
 - **全流程结束时**（所有可执行任务已完成或确认无更多可执行任务），固定再调用一次 `opencat-cleanup` 做最终收尾，确保仓库以干净状态结束。
+- `opencat-task` 仍保持“默认不自动 push”的护栏；自动 `git commit + git push` 只在 `opencat-work` 的**全流程末尾**统一执行，用于主分支最终收口。
 
 当用户明确调用 `opencat-work` 时，默认启用 AI 自主决策：
 
@@ -184,11 +186,19 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
    - 当所有活跃任务已完成、或确认当前无更多可执行任务时，执行最后一次 `opencat-cleanup`
    - 确保所有保留 worktree 都回到各自的 `idle branch`，工作区干净
    - 确保没有残留的任务分支或未合并提交
+   - 若 cleanup 失败，记录阻塞原因并停止后续发布步骤
+
+10. **最终 Git 收口与推送**
+   - 回到主 worktree，确认当前 `base_branch` 与上游跟踪关系正常（通常是 `master` 或 `main`）
+   - 检查是否仍有未提交改动；若有，执行一次最终提交，推荐提交信息：`chore(opencat-work): finalize queue run`
+   - 检查当前分支是否存在未推送提交；只要 ahead > 0，就执行 `git push`
+   - 若工作区干净且与远端已同步，则明确记录“无需额外 commit / push”
+   - 若缺少上游远端或 push 失败，输出明确阻塞原因，便于后续补救
    - 输出最终状态报告
 
 ## 核心规则
 
-1. **新任务前必须先 check + cleanup，全流程结束时必须再 cleanup**: 每次执行 `TODO.md` 前，先运行 `opencat-check`，再运行 `opencat-cleanup`；全流程结束时（所有可执行任务已完成或无更多可执行任务），再调用一次 `opencat-cleanup` 做最终收尾
+1. **新任务前必须先 check + cleanup，全流程结束时必须再 cleanup 并做最终 git 收口**: 每次执行 `TODO.md` 前，先运行 `opencat-check`，再运行 `opencat-cleanup`；全流程结束时（所有可执行任务已完成或无更多可执行任务），再调用一次 `opencat-cleanup` 做最终收尾，并在必要时自动 `git commit` 与 `git push`
 2. **所有 worktree 全部闲置后才能跑 TODO**: 只要有任意一个保留 worktree 不在 `idle branch` 上，就视为还有旧任务未收尾
 3. **SubAgent 独立执行**: 每个任务由全新 SubAgent 执行，上下文 100% 隔离；每个 SubAgent 都有独立的猫咪身份
 4. **必须使用 opencat-task**: SubAgent 内部通过 `opencat-task` 完成任务
@@ -217,6 +227,7 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
 28. **子 Agent 禁止提问卡住**: 子 Agent 必须全程自己执行；若遇到难以判断的情况，选择最保守可继续路径并记录原因，禁止向主 Agent 发问等待确认
 29. **默认记录问题后继续**: 无论是 cleanup 还是 task 执行，只要仍有可继续步骤，就先记录异常并继续，不因常规不确定性暂停
 30. **异常变更先提交再续跑**: 若出现当前流程未创建的新 TODO 或任何不明来源变更，必须先用独立 Git 提交收口，再继续原任务，禁止因此暂停
+31. **最终由 opencat-work 统一推送**: `opencat-task` 可继续保持不自动 push；真正的自动 push 只在 `opencat-work` 全流程结束、最终 cleanup 成功之后执行
 
 ## 输出格式
 
@@ -243,6 +254,7 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
 - 环境检查统一由 `opencat-check` 负责，工程清理由 `opencat-cleanup` 负责
 - cleanup 的目标不是只清主 worktree，而是让所有保留 worktree 都回到各自的 `idle branch`
 - 只要某个 worktree 还不在闲置分支，它就不是“可复用空槽位”，而是“未收尾任务”
+- 最终自动 `git commit + git push` 只在整个任务队列结束后执行一次；不是每个 `opencat-task` 完成后都立即 push
 - 工作分支开始开发前和 merge 回主干前，都必须先 rebase 到最新主干
 - 子 Agent 正常启动后，如无明确失败信号，连续 10 分钟无新回应仍按正常执行处理；避免因短暂无输出而频繁催促或误判卡死
 - 主 Agent 启动子 Agent 后应优先等待和轮询结果，避免主上下文因为接管实现而被热污染
