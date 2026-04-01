@@ -6,7 +6,7 @@
 ```
 
 `OpenCat Workflows` 为 `Claude Code` 和 `Cursor` 提供一组可复用的工作流技能。
-从 `0.1.12` 开始，项目以 5 个技能组成当前稳定执行模型：
+从 `0.1.14` 开始，项目以 5 个技能组成当前稳定执行模型：
 
 - `opencat-check` 负责环境与拓扑就绪检查
 - `opencat-cleanup` 负责残留收尾与空闲态归还
@@ -18,7 +18,7 @@
 
 ## 内置技能
 
-| 技能 | `0.1.12` 中的职责 |
+| 技能 | `0.1.14` 中的职责 |
 |------|------|
 | `opencat-check` | 检查 Git、Node.js、包管理器、OpenSpec 可用性，以及保留 worktree 拓扑是否健康 |
 | `opencat-cleanup` | 收尾中断任务，并把保留 worktree 恢复到各自配对的 `opencat/idle/<slot-name>` 分支 |
