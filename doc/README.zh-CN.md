@@ -6,7 +6,7 @@
 ```
 
 `OpenCat Workflows` 为 `Claude Code` 和 `Cursor` 提供一组可复用的工作流技能。
-从 `0.1.14` 开始，项目以 5 个技能组成当前稳定执行模型：
+从 `0.1.15` 开始，项目以 5 个技能组成当前稳定执行模型：
 
 - `opencat-check` 负责环境与拓扑就绪检查
 - `opencat-cleanup` 负责残留收尾与空闲态归还
@@ -18,7 +18,7 @@
 
 ## 内置技能
 
-| 技能 | `0.1.14` 中的职责 |
+| 技能 | `0.1.15` 中的职责 |
 |------|------|
 | `opencat-check` | 检查 Git、Node.js、包管理器、OpenSpec 可用性，以及保留 worktree 拓扑是否健康 |
 | `opencat-cleanup` | 收尾中断任务，并把保留 worktree 恢复到各自配对的 `opencat/idle/<slot-name>` 分支 |
@@ -112,6 +112,8 @@
 - 没有 `>` 的条目仍然只是 backlog
 - backlog 条目不能被自动补 `>`，也不能被自动执行
 - 对 `opencat-work` 来说，章节激活标记是只读的；它不能改写章节标题上的 `>`
+- 回写 `TODO.md` 时，`opencat-work` 只能修改任务行；章节标题行必须保持与原文逐字一致
+- 保存 `TODO.md` 前，`opencat-work` 应先比对章节标题快照；若发现 `## P1 >` 被改成 `## P1` 之类的标题变更，必须拒绝本次写回
 - 任务行上的 `>` 可由 `opencat-work` 在已激活章节内维护，用来标记当前执行任务
 
 示例：
