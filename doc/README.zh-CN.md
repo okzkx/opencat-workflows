@@ -7,7 +7,7 @@
 
 `OpenCat Workflows` 为 `Claude Code` 和 `Cursor` 提供一组可复用的工作流技能。
 推荐优先以 `Claude Code` 插件形式安装；如果当前环境无法通过 marketplace 安装，也可以把 `skills/` 下的技能目录直接复制到自己的技能目录中作为降级方案。
-从 `0.1.16` 开始，项目以 5 个技能组成当前稳定执行模型：
+从 `0.1.17` 开始，项目以 5 个技能组成当前稳定执行模型：
 
 - `opencat-check` 负责环境与拓扑就绪检查
 - `opencat-cleanup` 负责残留收尾与空闲态归还
@@ -19,7 +19,7 @@
 
 ## 内置技能
 
-| 技能 | `0.1.16` 中的职责 |
+| 技能 | `0.1.17` 中的职责 |
 |------|------|
 | `opencat-check` | 检查 Git、Node.js、包管理器、OpenSpec 可用性，以及保留 worktree 拓扑是否健康 |
 | `opencat-cleanup` | 收尾中断任务，并把保留 worktree 恢复到各自配对的 `opencat/idle/<slot-name>` 分支 |
@@ -100,6 +100,25 @@ Cursor 也可以直接消费标准 `skills/`：
 2. 保持原始目录名，避免技能发现路径变化
 3. 如果技能没有立即出现，重新加载 Cursor
 4. 确认 `opencat-check`、`opencat-cleanup`、`opencat-task`、`opencat-work` 和 `opencat-agent` 都已可发现
+
+## 快速开始
+
+第一次使用时，按这 3 步即可：
+
+1. 运行 `/opencat-workflows:opencat-check`
+2. 创建 `TODO.md`
+3. 运行 `/opencat-workflows:opencat-work`
+
+最小 `TODO.md` 示例：
+
+```markdown
+# TODO
+
+## P1 >
+- 我的第一个任务
+```
+
+`opencat-work` 只会领取已激活条目，因此要在想执行的章节或任务上保留 `>` 标记。
 
 ## 基本命令
 

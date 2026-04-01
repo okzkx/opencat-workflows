@@ -9,7 +9,7 @@
 
 `OpenCat Workflows` is a reusable workflow package for `Claude Code` and `Cursor`.
 The recommended distribution model is to install it as a `Claude Code` plugin. If marketplace installation is not available in your environment, you can copy the directories under `skills/` into your own skills folder as a fallback.
-Version `0.1.16` standardizes the current execution model around five skills:
+Version `0.1.17` standardizes the current execution model around five skills:
 
 - `opencat-check` for environment and topology readiness
 - `opencat-cleanup` for residue recovery and idle-state convergence
@@ -21,7 +21,7 @@ This package does not bundle OpenSpec itself. Full task execution still depends 
 
 ## Included Skills
 
-| Skill | Role in `0.1.16` |
+| Skill | Role in `0.1.17` |
 |------|------|
 | `opencat-check` | Verifies Git, Node.js, package manager, OpenSpec availability, and retained worktree topology |
 | `opencat-cleanup` | Finishes interrupted work safely and returns retained worktrees to their paired `opencat/idle/<slot-name>` branches |
@@ -102,6 +102,25 @@ Cursor can consume the same canonical skills directly:
 2. Keep the original folder names so discovery remains stable
 3. Reload Cursor if the skills do not appear immediately
 4. Confirm `opencat-check`, `opencat-cleanup`, `opencat-task`, `opencat-work`, and `opencat-agent` are discoverable
+
+## Quick Start
+
+For the shortest first run:
+
+1. Run `/opencat-workflows:opencat-check`
+2. Create `TODO.md`
+3. Run `/opencat-workflows:opencat-work`
+
+Minimal `TODO.md` example:
+
+```markdown
+# TODO
+
+## P1 >
+- My first task
+```
+
+`opencat-work` only picks activated items, so keep the `>` marker on the section or task you want to run.
 
 ## Basic Commands
 
