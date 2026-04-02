@@ -1,211 +1,112 @@
 ---
 name: opencat-work
-description: OpenCat 任务列表连续执行器。开始执行前**必须**调用 `opencat-check` 与 `opencat-cleanup`，全流程结束时**必须**再调用一次 `opencat-cleanup` 做最终收尾；只有全部保留 worktree 回到闲置分支后才能领取新 TODO，任务执行**必须**通过 `opencat-task` 完成。
-compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` skills to be available in the project.
+description: OpenCat 任务列表连续执行器。**必须**先运行 `opencat-check` 与 `opencat-cleanup`，仅执行 `TODO.md` 中显式激活任务，任务实现**必须**通过 `opencat-task`，结束后**必须**统一 cleanup 与 git 收口。
+compatibility: Requires `opencat-check`, `opencat-cleanup`, `opencat-task`, and `opencat-agent` skills to be available in the project.
 ---
 
 # /opencat-work - 任务列表连续执行器
 
-执行 `TODO.md` 中已显式激活的任务，通过 SubAgent 调用 `opencat-task` 技能逐个完成。环境检查统一交给 `opencat-check`，工程清理统一交给 `opencat-cleanup`。
+执行`TODO.md` 中已显式激活的任务，通过带猫咪身份的 SubAgent 串行调用 `opencat-task` 逐个完成。环境检查统一交给 `opencat-check`，工程清理统一交给 `opencat-cleanup`，最终 Git 收口由本技能负责。
 
-## 🚨 核心不可违反规则
+## 结构总览
 
-1. **必须**先调用 `opencat-check` 与 `opencat-cleanup`；只要还有任意 worktree 不在 `idle branch` 上，就**严禁**领取新的 TODO 任务。
-2. **必须**通过 `opencat-task` 的标准 worktree 流程执行任务；严禁主 Agent 直接接管实现，破坏隔离。
-3. **必须**串行运行任务 SubAgent；同一时刻只能有一个任务 SubAgent 处于执行中。
-4. **严禁**把未激活的 backlog 任务当作可执行任务；若 `TODO.md` 中既没有活跃章节也没有活跃任务，就**不得**自动领取任何普通任务。
-5. `TODO.md` 的**章节标题**执行状态（如 `## P1 >`）**属于显式授权信号**；除非用户明确要求，`opencat-work` **严禁新增、删除或改写章节标题上的 `>` 标记**。任务行上的 `>` 则允许按流程维护当前执行项。
-6. **必须**默认自主决断并继续推进；最多记录问题，不因常规不确定性退出、暂停或回头追问用户。
-7. 对”修复”类任务，**必须**重新验证当前现状；严禁仅凭历史 DONE / archive 记录直接跳过。
-8. **必须**为每个 SubAgent 生成独特的猫咪身份，并在 worktree 中设置对应的 Git 用户信息；严禁以通用身份或主 Agent 身份提交代码。
-9. 若执行中发现 `TODO.md` 出现当前流程未创建的新待办项，或仓库里出现任何不明来源的变更，**不能暂停**；必须先把异常变更独立提交收口，再继续原有任务。
-10. **必须**在全流程最终 `cleanup` 之后执行一次主分支 Git 收口：若主 worktree 仍有未提交改动则自动提交，随后将当前 `base_branch` 推送到默认远端；若只有未推送提交，也必须执行 push。
+- `${CLAUDE_SKILL_DIR}/reference/highest-principles.md`: 最高准则与冲突裁决顺序
+- `${CLAUDE_SKILL_DIR}/reference/workflow.md`: 完整执行工作流
+- `${CLAUDE_SKILL_DIR}/reference/todo-done-protocol.md`: `TODO.md` / `DONE.md` 文本协议
+- `${CLAUDE_SKILL_DIR}/reference/agent-management.md`: 猫咪身份与 SubAgent 管理规则
+- `${CLAUDE_SKILL_DIR}/reference/cleanup-sync.md`: 工程清理、异常收口与最终同步
+- `${CLAUDE_SKILL_DIR}/reference/notes.md`: 补充注意事项与边界说明
 
-## 最高准则
+运行本技能时，凡涉及规则细节、文本协议、智能体约束、cleanup 策略或边界说明，**必须**按需读取上述文件；不得仅凭主 `SKILL.md` 的摘要自行补全细节。
 
-- **必须**把“完成完整 OpenCat Work 队列工作流”作为最高优先级
-- **绝对不要**因为任何预期外的变动停止执行；包括但不限于额外未提交修改、删除文件、子模块新变化、执行过程中冒出的附带改动
-- **必须**把当前未提交改动视为允许自动收口的工作流残留；继续执行 `/opencat-work` 时，无需再因未预期改动中断
-- 遇到预期外变动时，默认策略是记录、收口并继续，把它们纳入当前任务链和最终提交链路
-- 只有在当前关键命令真实失败且已经无法继续任何有效步骤时，才允许停止本技能
+## 触发条件
 
-## 🐱 猫咪 SubAgent 身份系统
+- 用户明确调用 `/opencat-work`
+- 用户要求连续处理项目内 `TODO.md` 中已激活的任务
+- 用户希望在不中断的前提下完成整个 OpenCat Work 队列
 
-每个任务 SubAgent 在创建时，必须为其生成一个独特的拟人化猫咪身份。这只猫将作为该任务的专属执行者，全程以自己的身份工作。
+## 🚨 最高准则
 
-**身份生成统一委托给 `opencat-agent` 技能。** 本技能不再内联实现猫咪生成逻辑，而是在需要生成猫咪身份时调用 `opencat-agent`，获取完整的身份档案和 SubAgent Prompt 注入片段。
+1. **必须**先执行一次 `opencat-check`，再执行一次 `opencat-cleanup`；只要任意保留 worktree 未回到 `idle branch`，就**严禁**领取新任务。
+2. **必须**只执行项目内 `TODO.md` 中显式激活的章节或任务；未激活内容一律视为 backlog，**不得**自动领取。
+3. **必须**通过 SubAgent 调用 `opencat-task` 完成具体任务；主 Agent **严禁**直接接管实现工作。
+4. **必须**串行运行任务 SubAgent；同一时刻只能存在一个活跃任务执行者。
+5. `TODO.md` 章节标题上的 `>` 是显式授权信号，除非用户明确要求，**严禁**新增、删除或改写；任务行上的 `>` 仅可在已激活章节内按流程维护。
+6. 对“修复”类任务，**必须**重新验证当前现状；**严禁**仅凭项目内 `DONE.md`、archive 或历史记录直接判定完成。
+7. **非常重要**若执行中出现不明来源变更、未预期新 TODO 或残留任务态 worktree，**不能暂停**；必须先做独立收口，再继续原流程。
+8. 全流程结束后，**必须**再次执行 `opencat-cleanup`，然后统一完成主 worktree 的 `git commit` / `git push` 收口。
 
-### 调用流程
+## 工作流
 
-1. 主 Agent 选定任务后，调用 `opencat-agent` 并传入任务名称和描述
-2. `opencat-agent` 返回完整的猫咪身份档案，包括：
-   - 身份信息（姓名、品种、职业、经历、性格、口头禅、邮箱）
-   - Git 配置命令
-   - SubAgent Prompt 注入片段
-3. 主 Agent 使用返回的 Prompt 注入片段启动 SubAgent
-4. SubAgent 在 worktree 中设置 Git 身份并执行任务
+### 1. 初始化
 
-### 本技能维护的约束
+- 读取`TODO.md` 与 `DONE.md`
+- 识别活跃章节、活跃任务、普通 backlog
+- 建立本轮任务视图，但此时**尚未**领取任务
 
-- 身份唯一性 ： 同一会话中禁止复用同一只猫；调用 `opencat-agent` 时传入已使用的猫咪姓名列表 
-- Git 身份隔离 ： SubAgent 必须在 worktree 中使用猫咪身份的 `git config`，禁止通用身份
+### 2. 闸门检查
 
-## 调用约定
+- 固定先运行 `opencat-check`
+- 再运行 `opencat-cleanup`
+- 只有当仓库收敛到“主 worktree 可继续 + 所有保留 worktree 闲置”时，才允许进入任务选择
 
-- 本技能启动后，固定先执行一次 `check + cleanup`：先 `opencat-check`，再 `opencat-cleanup`。
-- 只有当这次 `check + cleanup` 确认仓库可继续领取新任务后，才允许进入 TODO 选择。
-- 每个具体任务都交给子 Agent 运行 `opencat-task`；主 Agent 只做队列编排、状态管理和最终记录。
-- **全流程结束时**（所有可执行任务已完成或确认无更多可执行任务），固定再调用一次 `opencat-cleanup` 做最终收尾，确保仓库以干净状态结束。
--  在 `opencat-work` 的**全流程末尾**统一执行自动 `git commit + git push`
+### 3. 选择候选任务
 
-**非常重要**当用户明确调用 `opencat-work` 时，默认启用 AI 自主决策：
+- 若存在活跃任务，优先选择该任务
+- 否则按 `P1 > P2 > P3` 寻找第一个活跃章节中的首个未完成任务
+- 若没有活跃章节且没有活跃任务，直接结束并报告“仅剩 backlog，无可执行任务”
 
-- 若用户未指定具体任务，只能从当前上下文和 `TODO.md` 中**已显式激活**的任务集合里选择继续执行
-- 不因常规任务选择而停下来等待确认
-- 若多个候选任务会显著改变范围、行为或风险，且难以判断，子 Agent 不得发问等待确认，必须选择最保守且可继续的方案，记录问题后继续
-- 若任务以“修复”开头，必须重新审视当前代码、行为与仓库状态，不能仅因 `DONE.md`、归档记录或历史实现存在相似项就直接跳过
-- 若执行中冒出未预期的新 TODO 或任何不明来源变更，不视为暂停条件；先做独立 Git 提交收口，再继续当前任务链
+### 4. 领取并启动执行者
 
-## 文件格式
+- 若候选任务尚未带任务级 `>`，可在其所属活跃章节内将其标记为当前任务
+- 调用 `opencat-agent` 生成本轮唯一猫咪身份，并记录已使用姓名
+- 以猫咪 Prompt 片段启动 SubAgent
+- SubAgent **必须**在内部调用 `opencat-task` 完成完整工作流
 
-- TODO.md ：${CLAUDE_SKILL_DIR}/template/TODO.md
-- DONE.md ：${CLAUDE_SKILL_DIR}/template/DONE.md
+### 5. 等待、归档与推进
 
-## 解析规则
+- 主 Agent 只负责等待、轮询、记录状态，不接管实现
+- 只要没有明确失败证据，连续 20 分钟无新回应仍视为正常执行
+- 任务成功后，从 `TODO.md` 删除已完成任务，在 `DONE.md` 追加精简记录
+- 每完成一个任务后，再执行一次 `opencat-cleanup`，确认可继续领取下一项
 
-- **优先级**: P1 > P2 > P3
-- **活跃章节**: 带 `>` 标记的章节（`## P1 >`），表示该章节被显式授权进入执行队列；只有活跃章节中的任务，才允许被自动领取
-- **活跃任务**: 带 `>` 标记的任务（`- > 任务A`），表示当前正在执行的任务，优先级高于仅有活跃章节的普通任务
-- **未激活任务 / backlog**: 若章节标题没有 `>`，且任务行前也没有 `>`，则该任务只是待办记录，**不得**被 `opencat-work` 自动执行，也不得在未激活章节中被自动补 `>`
-- **状态所有权**: 章节标题上的 `>` 由用户或上游流程显式维护；`opencat-work` 不得改写。任务行上的 `>` 可由 `opencat-work` 在**已激活章节内**按流程标记、转移或清除，用于表示当前执行项
-- **TODO 变更白名单**: `opencat-work` 回写 `TODO.md` 时，只允许做 3 类改动：删除已完成任务行、在已激活章节内维护任务行上的 `>`、在失败任务行后追加失败注释。除此之外，尤其是任何章节标题文本，必须保持逐字不变
-- **保存前校验**: 每次准备保存 `TODO.md` 前，必须先提取原始章节标题列表（如 `## P1 >`、`## P2`），并与改写后的章节标题逐行比对；只要任意标题发生变化，就视为违规改写，必须放弃本次写回并重新执行仅针对任务行的最小编辑
-- **任务格式**: `- 任务名称`（不使用数字序号）
-- **修复任务**: 任务名以“修复”开头时，视为缺陷/回归排查任务，必须重新验证现状，不能只按历史记录做“已完成”判断
+### 6. 最终收口
 
-## 执行流程
+- 当所有活跃任务完成，或确认无更多可执行任务时，再执行一次最终 `opencat-cleanup`
+- 若主 worktree 仍有未提交改动，执行最终提交
+- 若当前分支存在未推送提交，执行 `git push`
+- 输出最终状态报告
 
-1. **初始化**
-   - 读取 `TODO.md` 和 `DONE.md`
-   - 扫描所有章节，识别活跃章节和活跃任务
-   - **立刻执行一次 `check + cleanup`**
+## 文本解析和生成
 
-2. **check + cleanup 闸门**
-   - `opencat-check` 负责统一验证工具链、依赖和 worktree 拓扑是否健康
-   - `opencat-cleanup` 负责统一清理未竟任务、残留分支和非闲置 worktree
-   - 只要 check / cleanup 没有把仓库收敛到“全部 worktree 已闲置、工程状态干净”，就**不允许**领取新的 `TODO.md` 任务
-   - `opencat-work` 不在这里重复实现环境检查和工程清理细节，只消费 `opencat-check` / `opencat-cleanup` 的结论
+- `TODO.md` 与 `DONE.md` 是权威来源
+- 章节优先级固定为 `P1 > P2 > P3`
+- 章节标题上的 `>` 表示“该章节被显式授权可进入执行队列”
+- 任务行上的 `>` 表示“该任务是当前执行项”
+- 回写 `TODO.md` 时只允许：
+  - 删除已完成任务行
+  - 在已激活章节内维护任务行上的 `>`
+  - 在失败任务行后追加失败注释
+- 保存前**必须**对章节标题做逐字快照比对；若标题发生任何变化，必须放弃该次写回并改用更小粒度编辑
+- 具体协议细节**必须**读取 `${CLAUDE_SKILL_DIR}/reference/todo-done-protocol.md`
+- `${CLAUDE_SKILL_DIR}/template/TODO.md` 与 `${CLAUDE_SKILL_DIR}/template/DONE.md` 仅用于格式参考，不参与运行时读写
 
-3. **状态判断与候选任务选择**
+## 智能体管理
 
-   | 条件 | 操作 |
-   |------|------|
-   | 所有章节为空 | **直接结束**，报告“无任务” |
-   | 有活跃任务 | 选择该活跃任务作为当前候选任务 |
-   | 无活跃任务，但有活跃章节中的未完成任务 | 选择该活跃章节中的第一个未完成任务作为当前候选任务 |
-   | 无活跃任务，且无活跃章节 | **直接结束**，报告“无可执行任务；当前仅存在未激活 backlog” |
+- 每个任务必须使用一只新的猫咪执行者，禁止复用同一身份
+- 猫咪身份统一由 `opencat-agent` 生成；本技能不内联造猫逻辑
+- SubAgent 必须在 worktree 中设置猫咪身份的 Git 用户信息
+- 主 Agent 只做队列编排、状态维护、异常收口和最终汇总
+- 子 Agent 必须自主决策；遇到常规不确定性时，选择最保守且可继续的方案并记录问题
+- 详细角色边界与等待规则**必须**读取 `${CLAUDE_SKILL_DIR}/reference/agent-management.md`
 
-   **候选任务选择优先级**（无活跃任务时）：
-   1. 按 P1 > P2 > P3 顺序，找到第一个活跃章节
-   2. 选择该活跃章节中的第一个未完成任务
-   3. 若没有任何活跃章节，则不领取任务、不自动补标记
+## 工程清理和同步
 
-4. **领取任务前的清洁确认**
-   - 进入本步骤时，仓库应当已经完成本轮 `check + cleanup`，处于“主 worktree 干净 + 所有保留 worktree 处于闲置分支”的状态
-   - **不得**为了领取任务而改写章节标题上的执行状态；不移除章节标题上的 `>`, 也不把 `## P1 >` 改成 `## P1`
-   - 对 `TODO.md` 的编辑范围必须限制在目标任务行；若使用替换、补丁或整段重写方式更新文件，必须确保章节标题行只作为上下文出现，不能成为被删除或重建的对象
-   - 若当前候选任务之前还不是活跃任务，且它位于活跃章节中，此时再标记为活跃任务：`- > 任务A`
-   - **禁止**对未激活章节中的普通任务自动补 `>`；只有任务已属于某个活跃章节，或它本身已经显式带 `>`，才允许进入领取步骤
-  - 若在确认或准备启动 SubAgent 的过程中又出现新的脏改动、任务分支或非闲置 worktree，先判断是否属于当前流程预期产物；凡是不明来源变更或未预期新 TODO，一律先做独立 Git 提交收口，再重新执行一次 `check + cleanup`
-   - `opencat-work` 自己不再发明额外的环境检查和工程收尾流程；统一交给这套 `check + cleanup` 入口
-
-5. **执行任务**
-   - 主 Agent 只负责选择任务、启动/衔接 SubAgent、更新任务记录与汇总结果，不提前实现、调试或接管子任务细节
-   - 同一时刻只能有一个任务 SubAgent 处于执行中；禁止为同一任务或不同任务并行创建多个 SubAgent 争抢工作
-   - 主 Agent 启动 SubAgent 后，必须耐心等待其完成，通过轮询进度/结果来衔接；除非确认 SubAgent 已失败、卡死或用户明确要求接管，否则不要因为等待而切换成主 Agent 亲自实现
-   - **20 分钟静默等待规则**：只要 SubAgent 已正常启动且没有明确失败信号，即使连续 20 分钟没有新的文本回应，也默认视为仍在正常执行；在这 20 分钟窗口内不要仅因无输出就判定卡住、不要频繁 resume/追问催促
-   - 只有 cleanup 已明确报告”仓库完全干净且所有 worktree 均闲置”后，才允许启动 SubAgent
-   - **生成猫咪身份**：启动 SubAgent 前，调用 `opencat-agent` 技能，传入任务名称和描述（以及本会话已使用的猫咪姓名列表），获取完整的猫咪身份档案和 SubAgent Prompt 注入片段
-   - **注入身份到 SubAgent**：使用 `opencat-agent` 返回的 Prompt 注入片段启动 SubAgent，确保 SubAgent 以猫咪身份运行
-   - 启动任务 SubAgent（以猫咪身份运行）
-   - 只有当当前 SubAgent 已完成并销毁后，主 Agent 才能为下一个任务再创建新的 SubAgent
-   - **重要** SubAgent 内部必须调用 `opencat-task`
-   - **重要** SubAgent 必须全程自主执行；若遇到难以判断的情况，不得向主 Agent 提问或等待确认，必须选择最保守的可继续方案，记录问题后继续
-   - 若任务以“修复”开头，SubAgent 必须先重新确认 bug 是否仍可复现、现有实现是否真的覆盖问题、是否存在新的回归路径；不能仅因 `DONE.md` / archive 中有同名或相似记录就直接归档
-   - 只有明确属于“新功能重复建档”且有充分证据证明任务只是重复记录时，才允许做最小化清队列处理
-   - **必须使用 worktree 隔离**：SubAgent 必须按照 `opencat-task` 的完整流程执行
-     - purpose / apply / archive / merge 由 `opencat-task` 负责
-     - 结束时由 `opencat-task` 调用 `opencat-cleanup` 做统一收尾
-   - SubAgent 完成后自动销毁，上下文完全隔离
-
-6. **归档**
-   - 从 `TODO.md` 删除已完成任务行
-   - 除删除已完成任务行外，保持章节标题原样；任务行上的 `>` 可按队列推进需要维护，但不得越过章节激活边界
-   - 保存 `TODO.md` 前，必须再次校验所有章节标题与改写前逐字一致；若发现 `## P1 >` 被错误改成 `## P1` 之类的变化，立即撤销该次写回并改用更小粒度的任务行编辑
-  - 在 `DONE.md` 文件末尾新增一行记录：`[时间（分钟）] <任务名称>-<change-name>`，保持精简不要有多余描述
-  - 若任务未明确指定归档位置，默认使用 `.claude/docs/opencat/` 作为归档目录
-   - 提交 git：`完成: 任务名称`（使用执行该任务的猫咪身份提交）
-
-7. **继续下一个**
-   - 每完成一个任务后，再次执行一次 `check + cleanup`
-   - 只有 cleanup 再次确认所有保留 worktree 都已回到闲置态，才允许继续领取下一项 TODO
-   - 仍有活跃章节中的剩余任务 → 标记该活跃章节中的第一个未完成任务为活跃任务
-   - 没有活跃任务且没有活跃章节 → 报告“当前无可执行任务，剩余内容均为未激活 backlog”
-   - 所有章节为空 → 报告“全部完成”
-
-8. **失败处理**
-   - 在任务行后追加注释：`- 任务名称 <!-- 失败: 原因 -->`
-   - 若 cleanup 无法把仓库恢复为“全部闲置、全部干净”，先记录具体阻塞原因，再继续处理后续仍可执行的收尾或下一可执行任务
-   - 若 SubAgent 仍有未解决卡点，不得追问式恢复；要么继续完成当前任务的可执行部分，要么记录问题后转到下一项可执行任务
-   - 默认不等待人工修复；只有仓库已经无法继续推进任何步骤时，才结束本轮并输出已记录问题
-
-9. **全流程结束时的最终清理**
-   - 当所有活跃任务已完成、或确认当前无更多可执行任务时，执行最后一次 `opencat-cleanup`
-   - 确保所有保留 worktree 都回到各自的 `idle branch`，工作区干净
-   - 确保没有残留的任务分支或未合并提交
-   - 若 cleanup 失败，记录阻塞原因并停止后续发布步骤
-
-10. **最终 Git 收口与推送**
-   - 回到主 worktree，确认当前 `base_branch` 与上游跟踪关系正常（通常是 `master` 或 `main`）
-   - 检查是否仍有未提交改动；若有，执行一次最终提交，推荐提交信息：`chore(opencat-work): finalize queue run`
-   - 检查当前分支是否存在未推送提交；只要 ahead > 0，就执行 `git push`
-   - 若工作区干净且与远端已同步，则明确记录“无需额外 commit / push”
-   - 若缺少上游远端或 push 失败，输出明确阻塞原因，便于后续补救
-   - 输出最终状态报告
-
-## 核心规则
-
-1. **新任务前必须先 check + cleanup，全流程结束时必须再 cleanup 并做最终 git 收口**: 每次执行 `TODO.md` 前，先运行 `opencat-check`，再运行 `opencat-cleanup`；全流程结束时（所有可执行任务已完成或无更多可执行任务），再调用一次 `opencat-cleanup` 做最终收尾，并在必要时自动 `git commit` 与 `git push`
-2. **所有 worktree 全部闲置后才能跑 TODO**: 只要有任意一个保留 worktree 不在 `idle branch` 上，就视为还有旧任务未收尾
-3. **SubAgent 独立执行**: 每个任务由全新 SubAgent 执行，上下文 100% 隔离；每个 SubAgent 都有独立的猫咪身份
-4. **必须使用 opencat-task**: SubAgent 内部通过 `opencat-task` 完成任务
-5. **猫咪身份唯一性**: 每只猫的身份（姓名、品种、职业）必须与任务匹配且不重复；同一会话中禁止复用同一只猫
-6. **Git 身份隔离**: SubAgent 在 worktree 中必须使用猫咪身份的 `git config user.name/email` 提交代码
-8. **主 Agent 不抢子 Agent 工作**: 主 Agent 只做编排、状态管理和最终汇总，不直接展开实现、调试、测试、读大量业务代码等本应由 SubAgent 完成的工作
-9. **主 Agent 耐心等待**: 子 Agent 已正常启动后，主 Agent 应持续等待其完成并仅做必要轮询；不要因短时间没有结果就接管实现，避免上下文热污染
-10. **10 分钟无回应不算卡死**: 只要子 Agent 已启动且无明确失败证据，连续 10 分钟没有新回应也仍视为正常执行；10 分钟内不得仅因静默就判定卡住或频繁发送追问
-11. **单子 Agent 串行执行**: 主 Agent 一次只能启动一个任务 SubAgent；必须等该 SubAgent 结束并销毁后，才能启动下一个任务的 SubAgent
-12. **必须使用 worktree**: `opencat-task` 的 apply/archive 阶段必须在独立 worktree 中执行
-13. **闲置分支是唯一待命状态**: 保留 worktree 空闲时必须在各自的 `idle branch` 上，且工作区干净
-14. **非闲置即任务态**: worktree 不处于闲置分支时，它就一定是在执行某个任务
-15. **开发前先变基**: 工作分支在开始开发前，必须先 rebase 到最新 `base_branch`
-16. **变更合并回主干**: 完成后必须将变更合并回 `base_branch`，且 merge 前必须再次 rebase 到最新 `base_branch`
-17. **任务分支必须删除**: 任务完成并回到闲置态后，对应任务分支必须删除
-18. **worktree 保留不删除**: 任务完成后保留 worktree 目录供下次使用
-19. **冲突处理固定策略**: 遇到分支冲突、主干推进、rebase 冲突或 merge 冲突时，永远先 rebase 到最新提交，再自行解决冲突并继续流程
-20. **立即保存**: 每次编辑文件后立即保存，不要批量操作
-21. **任务描述清晰**: 任务应当具体可执行、可验收
-22. **不修改任务内容**: 除非用户明确要求
-23. **默认自主选择任务**: 显式调用本技能但未指定任务时，按上下文和优先级自主决定并继续
-24. **只执行显式激活任务**: 若 `## P1` 这类章节标题后没有 `>`，且任务行前也没有 `>`，则这些任务只是 backlog，严禁自动执行
-25. **章节执行状态只读**: 章节标题上的 `>` 是显式授权信号；除非用户明确要求，严禁新增、删除或改写章节标题上的这些标记，包括把 `## P1 >` 改成 `## P1`
-26. **TODO 章节标题逐字保留**: 每次回写 `TODO.md` 时，都必须把原始章节标题列表当作只读快照；允许改的是任务行，不允许改的是章节标题文本本身
-27. **任务活跃标记可推进**: 任务行上的 `>` 可由 `opencat-work` 在已激活章节内按流程维护，用于指示当前执行任务；但不得借此绕过章节激活边界
-28. **修复任务必须重审**: 凡是”修复”开头的任务，都必须重新核对当前行为、代码与历史提交，不能仅凭归档 / DONE 存在相似项就跳过
-29. **子 Agent 禁止提问卡住**: 子 Agent 必须全程自己执行；若遇到难以判断的情况，选择最保守可继续路径并记录原因，禁止向主 Agent 发问等待确认
-30. **默认记录问题后继续**: 无论是 cleanup 还是 task 执行，只要仍有可继续步骤，就先记录异常并继续，不因常规不确定性暂停
-31. **异常变更先提交再续跑**: 若出现当前流程未创建的新 TODO 或任何不明来源变更，必须先用独立 Git 提交收口，再继续原任务，禁止因此暂停
-32. **最终由 opencat-work 统一推送**: `opencat-task` 可继续保持不自动 push；真正的自动 push 只在 `opencat-work` 全流程结束、最终 cleanup 成功之后执行
+- `opencat-check` 负责环境与拓扑健康检查
+- `opencat-cleanup` 负责残留任务、异常 worktree、闲置分支恢复与工程收尾
+- 任何非预期变更都先收口，再继续流程
+- `opencat-task` 不负责最终自动 push；真正的 push 只在 `opencat-work` 全流程末尾统一执行
+- cleanup 闸门、异常收口与最终同步策略**必须**读取 `${CLAUDE_SKILL_DIR}/reference/cleanup-sync.md`
 
 ## 输出格式
 
@@ -221,28 +122,27 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
 <进度说明>
 ```
 
+## Success / Failure
+
+- SUCCESS: 已显式激活的任务被按顺序执行完成， `TODO.md` / `DONE.md` 正确更新，所有 worktree 回到闲置态，主分支完成最终 Git 收口
+- FAILURE: `check + cleanup` 后仍无法进入可执行状态，或最终 cleanup / push 失败且已无任何可继续步骤
+
+## 关键文件
+
+- `TODO.md`
+- `DONE.md`
+- `${CLAUDE_SKILL_DIR}/reference/highest-principles.md`
+- `${CLAUDE_SKILL_DIR}/reference/workflow.md`
+- `${CLAUDE_SKILL_DIR}/reference/todo-done-protocol.md`
+- `${CLAUDE_SKILL_DIR}/reference/agent-management.md`
+- `${CLAUDE_SKILL_DIR}/reference/cleanup-sync.md`
+- `${CLAUDE_SKILL_DIR}/reference/notes.md`
+- `${CLAUDE_SKILL_DIR}/template/TODO.md`（只读模板）
+- `${CLAUDE_SKILL_DIR}/template/DONE.md`（只读模板）
+
 ## 注意事项
 
-- `TODO.md` + `DONE.md` 是权威来源
-- `TODO.md` 中只有显式激活的章节 / 任务可执行；未激活的普通条目只是 backlog
-- 章节标题上的执行状态只读；`opencat-work` 不会私自把 `## P1 >` 改成 `## P1`
-- 回写 `TODO.md` 时只能改任务行，章节标题必须逐字保持不变；保存前必须做一次标题快照比对
-- 任务行上的 `>` 可在已激活章节内由 `opencat-work` 维护，用来标记当前执行任务
-- git 仓库当前状态也是权威信号；领取新任务前必须先检查是否还有未竟工作
-- `opencat-work` 的第一动作永远是执行一次 `check + cleanup`
-- 环境检查统一由 `opencat-check` 负责，工程清理由 `opencat-cleanup` 负责
-- cleanup 的目标不是只清主 worktree，而是让所有保留 worktree 都回到各自的 `idle branch`
-- 只要某个 worktree 还不在闲置分支，它就不是“可复用空槽位”，而是“未收尾任务”
-- 最终自动 `git commit + git push` 只在整个任务队列结束后执行一次；不是每个 `opencat-task` 完成后都立即 push
-- 工作分支开始开发前和 merge 回主干前，都必须先 rebase 到最新主干
-- 子 Agent 正常启动后，如无明确失败信号，连续 10 分钟无新回应仍按正常执行处理；避免因短暂无输出而频繁催促或误判卡死
-- 主 Agent 启动子 Agent 后应优先等待和轮询结果，避免主上下文因为接管实现而被热污染
-- 主 Agent 只能串行使用一个任务子 Agent，当前子 Agent 未结束前不能再创建新的任务子 Agent
-- 子 Agent 不得通过提问向主 Agent 请求决策；遇到难以判断的情况，应选择最保守路径并记录问题后继续
-- 支持断点恢复（从中断处继续）
-- 支持 `/clear` 后继续，状态保存在文件中
-- 默认先完成可执行部分，再把剩余问题写入记录；不要因为常规异常等待人工修复
-- 若运行中出现未预期新 TODO 或不明来源变更，先做独立提交收口，再继续；不要因此停下来等待确认
-- 当前未提交改动默认视为允许自动收口的工作流残留；继续执行 `/opencat-work` 时，不因这类改动单独中断
-- 文件格式保持简洁
-- 遇到冲突时不暂停询问，默认 rebase 到最新提交并自行解决冲突
+- 默认自主决策并继续推进，不因常规不确定性暂停追问
+- 当前未提交改动默认视为允许自动收口的工作流残留；继续执行时不单独因此中断
+- 断点恢复时，优先以`TODO.md`、`DONE.md` 与仓库状态共同判断当前位置
+- 若细节冲突，以 `最高准则` 优先，其次是 `工作流`，最后才参考补充说明文档
