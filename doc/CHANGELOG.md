@@ -12,6 +12,21 @@
 
 - 暂无
 
+## [0.1.21] - 2026-04-02
+
+### Changed
+
+- 将插件版本提升到 `0.1.21`
+- 同步更新中英文说明中的稳定执行模型版本标识到 `0.1.21`
+- 更新 `opencat-task` 中归档报告文件名示例，明确时间戳精度为分钟
+- 调整 `opencat-work` 说明，改为引用 `template/TODO.md` 与 `template/DONE.md`
+- 同步更新 `opencat-work` 中 `DONE.md` 记录格式说明
+
+### Removed
+
+- 删除 `skills/opencat-work/template/TODO.template.md`
+- 删除 `skills/opencat-work/template/DONE.template.md`
+
 ## [0.1.20] - 2026-04-02
 
 ### Changed

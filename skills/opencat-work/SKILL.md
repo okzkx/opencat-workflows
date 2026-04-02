@@ -44,27 +44,21 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
    - SubAgent Prompt 注入片段
 3. 主 Agent 使用返回的 Prompt 注入片段启动 SubAgent
 4. SubAgent 在 worktree 中设置 Git 身份并执行任务
-5. 任务完成后，将归档文档路径写入 `DONE.md`；若无特殊说明，归档文档默认放在 `.claude/docs/opencat/` 下
 
 ### 本技能维护的约束
 
-| 约束 | 说明 |
-|------|------|
-| 身份唯一性 | 同一会话中禁止复用同一只猫；调用 `opencat-agent` 时传入已使用的猫咪姓名列表 |
-| Git 身份隔离 | SubAgent 必须在 worktree 中使用猫咪身份的 `git config`，禁止通用身份 |
-| DONE 记录格式固定 | `DONE.md` 每次只能在文件末尾新增一行：`[时间] 任务内容-归档文档路径` |
-| 归档目录默认值 | 若任务未单独指定归档位置，归档文档路径默认写为 `.claude/docs/opencat/<归档文件名>.md` |
+- 身份唯一性 ： 同一会话中禁止复用同一只猫；调用 `opencat-agent` 时传入已使用的猫咪姓名列表 
+- Git 身份隔离 ： SubAgent 必须在 worktree 中使用猫咪身份的 `git config`，禁止通用身份
 
 ## 调用约定
 
 - 本技能启动后，固定先执行一次 `check + cleanup`：先 `opencat-check`，再 `opencat-cleanup`。
 - 只有当这次 `check + cleanup` 确认仓库可继续领取新任务后，才允许进入 TODO 选择。
 - 每个具体任务都交给子 Agent 运行 `opencat-task`；主 Agent 只做队列编排、状态管理和最终记录。
-- 每完成一个任务后，再执行一次 `check + cleanup`，确认仓库重新回到”全部闲置、全部干净”状态。
 - **全流程结束时**（所有可执行任务已完成或确认无更多可执行任务），固定再调用一次 `opencat-cleanup` 做最终收尾，确保仓库以干净状态结束。
-- `opencat-task` 仍保持“默认不自动 push”的护栏；自动 `git commit + git push` 只在 `opencat-work` 的**全流程末尾**统一执行，用于主分支最终收口。
+-  在 `opencat-work` 的**全流程末尾**统一执行自动 `git commit + git push`
 
-当用户明确调用 `opencat-work` 时，默认启用 AI 自主决策：
+**非常重要**当用户明确调用 `opencat-work` 时，默认启用 AI 自主决策：
 
 - 若用户未指定具体任务，只能从当前上下文和 `TODO.md` 中**已显式激活**的任务集合里选择继续执行
 - 不因常规任务选择而停下来等待确认
@@ -74,33 +68,8 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
 
 ## 文件格式
 
-### TODO.md
-
-```markdown
-# TODO
-
-## P1 >
-- 任务A
-- 任务B
-
-## P2
-- 任务C
-- 任务D
-
-## P3
-- 任务E
-- 任务F
-```
-
-### DONE.md
-
-```markdown
-# DONE
-
-[2026-03-29 14:30] 实现用户登录功能-.claude/docs/opencat/2026-03-29-login.md
-[2026-03-29 15:10] 编写登录模块单元测试-.claude/docs/opencat/2026-03-29-login-tests.md
-[2026-03-29 16:00] 部署到测试环境-.claude/docs/opencat/2026-03-29-deploy-test.md
-```
+- TODO.md ：${CLAUDE_SKILL_DIR}/template/TODO.md
+- DONE.md ：${CLAUDE_SKILL_DIR}/template/DONE.md
 
 ## 解析规则
 
@@ -173,7 +142,7 @@ compatibility: Requires `opencat-task`, `opencat-cleanup`, and `opencat-agent` s
    - 从 `TODO.md` 删除已完成任务行
    - 除删除已完成任务行外，保持章节标题原样；任务行上的 `>` 可按队列推进需要维护，但不得越过章节激活边界
    - 保存 `TODO.md` 前，必须再次校验所有章节标题与改写前逐字一致；若发现 `## P1 >` 被错误改成 `## P1` 之类的变化，立即撤销该次写回并改用更小粒度的任务行编辑
-  - 在 `DONE.md` 文件末尾新增一行记录：`[时间] 任务名称-归档文档路径`
+  - 在 `DONE.md` 文件末尾新增一行记录：`[时间（分钟）] <任务名称>-<change-name>`，保持精简不要有多余描述
   - 若任务未明确指定归档位置，默认使用 `.claude/docs/opencat/` 作为归档目录
    - 提交 git：`完成: 任务名称`（使用执行该任务的猫咪身份提交）
 
