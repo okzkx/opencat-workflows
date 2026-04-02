@@ -8,18 +8,7 @@ compatibility: Requires `opencat-cleanup`, `openspec-propose`, `openspec-apply-c
 
 端到端执行 OpenSpec 变更：从提案到归档，使用“可复用 worktree 槽位 + 闲置分支 / 任务分支”两态模型隔离实现工作。环境检查入口由 `opencat-work` 负责，收尾与工程清理由 `opencat-cleanup` 负责。
 
-## 结构总览
-
-- `${CLAUDE_SKILL_DIR}/reference/highest-principles.md`: 以 AI 自动化为首的最高原则与冲突裁决
-- `${CLAUDE_SKILL_DIR}/reference/workflow.md`: 从 purpose 到 cleanup 的完整工作流
-- `${CLAUDE_SKILL_DIR}/reference/tool-usage.md`: `opencat` / `openspec` 工具职责边界与调用规范
-- `${CLAUDE_SKILL_DIR}/reference/cleanup-sync.md`: 工程清理、异常收口与同步方案
-- `${CLAUDE_SKILL_DIR}/reference/git-worktree-rules.md`: worktree 槽位、闲置分支与任务态规则
-- `${CLAUDE_SKILL_DIR}/reference/git-guidelines.md`: branch / commit / rebase / merge 的 Git 规范
-- `${CLAUDE_SKILL_DIR}/reference/document-protocol.md`: 输入、命名、校验与归档文档生成协议
-- `${CLAUDE_SKILL_DIR}/reference/notes.md`: 补充注意事项与平台细节
-
-运行本技能时，凡涉及最高准则、阶段步骤、工具职责、cleanup 策略、worktree 状态机、Git 规则、文档生成或边界说明，**必须**按需读取上述文件；不得只凭主 `SKILL.md` 的摘要自行补全细节。
+本 `SKILL.md` 是 `/opencat-task` 的**单文件权威运行规范**。运行时不得依赖额外 `reference/` 文档才能理解核心规则；如历史目录下仍保留同名参考文件，仅视为维护期备份材料，不是运行前置条件。
 
 ## 触发条件
 
@@ -35,6 +24,43 @@ compatibility: Requires `opencat-cleanup`, `openspec-propose`, `openspec-apply-c
 4. **必须**在流程开始和结束时各调用一次 `opencat-cleanup`；开始时清理残留，结束时归还闲置态并做工程收尾。
 5. **必须**在开发前与合并前先 rebase 到最新主干；遇到常规冲突时默认自行解决并继续。
 6. 若执行中发现当前流程未创建的新 TODO 或不明来源变更，**严禁**暂停；必须先独立提交收口，再继续当前流程。
+
+### 核心目标
+
+- **必须**完成完整的 OpenSpec purpose / apply / archive 任务链
+- **必须**维持 `worktree slot + idle branch + task branch` 状态机完整
+- **必须**把最终结果合并回 `trunk`
+- **必须**把当前仓库状态视为现实输入，而不是默认暂停理由
+
+### 自主决策原则
+
+发生不确定性时，按以下顺序裁决：
+
+1. 选择最保守、最不破坏主干历史的继续路径
+2. 优先保持 worktree 目录、分支承载关系与已有提交不被破坏
+3. 若有多个可行方案，优先选择更容易回到“任务完成并归还闲置态”的方案
+4. 若当前步骤无法完美完成，也先记录问题并推进后续仍可执行的步骤
+
+### 冲突裁决顺序
+
+当不同说明出现冲突时，使用以下顺序裁决：
+
+1. 本 `SKILL.md` 中的最高准则
+2. 本 `SKILL.md` 中的工作流与规则章节
+3. 输出格式和模板示例
+
+若某条说明会导致“暂停等待确认”，而另一条说明允许“继续推进并记录问题”，则**必须**选择后者。
+
+### 何时允许停止
+
+只有同时满足以下条件时，才允许停止本技能：
+
+- 关键命令真实失败
+- 已尝试可行的 rebase / cleanup / 收口 / 绕行步骤
+- 当前仓库状态已无法继续任何有效动作
+- 当前已不存在任何可继续的记录、归档、提交、合并、清理或汇报动作
+
+若仍能继续记录、归档、清理、提交或推进下一步，就不应停止。
 
 ## 工作流
 
@@ -60,49 +86,514 @@ cleanup
 → cleanup
 ```
 
-### 核心阶段摘要
+### 0. 开始时清理残留
 
-1. 开始时固定先调用一次 `opencat-cleanup`
-2. 在主 worktree 完成 purpose、验证和 purpose commit
-3. 领取或创建可复用的 worktree slot，并切入 `task_branch`
-4. 在目标 worktree 完成 apply、验证、apply commit、archive 与 archive commit
-5. 回到主 worktree 合并 `task_branch`
-6. 结束时再次调用 `opencat-cleanup`，恢复所有相关资源到可复用状态
+本技能在 SubAgent 内执行，开始前固定调用一次 `opencat-cleanup`：
 
-具体步骤、分支切换和失败处理**必须**读取 `${CLAUDE_SKILL_DIR}/reference/workflow.md`。
+- 清理可能残留的未提交变更
+- 清理未合并的残留分支
+- 确保保留 worktree 处于正确闲置态
+- 只有 cleanup 确认工程状态可继续后，才允许进入主流程
 
-## 工具使用约定
+这一步防止 SubAgent 在脏状态下启动，同时确保闲置分支已对齐到最新主干。
 
-- `opencat-cleanup` 负责开始/结束清理、闲置分支恢复与异常收敛
-- `openspec-propose` 负责 purpose 阶段文档
-- `openspec-apply-change` 负责 apply 阶段实现
-- `openspec-archive-change` 负责 archive 阶段归档
-- `openspec validate --change "<name>"` 负责 purpose / apply 阶段校验
+### 1. 分类请求
 
-具体工具职责边界与调用时机**必须**读取 `${CLAUDE_SKILL_DIR}/reference/tool-usage.md`。
+**简单变更**：
 
-## Git Worktree 规则
+- 小修复、小功能、文档或配置修改
+- 单一明确目标
+- 模块影响有限
 
-- worktree slot 命名、`idle_branch` 配对关系与 task / idle 两态模型，以 `${CLAUDE_SKILL_DIR}/reference/git-worktree-rules.md` 为唯一权威来源
-- 绝不删除保留 worktree 目录；但也绝不允许它长期停在 detached / `trunk` / 脏状态
+**复杂变更**：
+
+- 跨模块工作
+- 涉及设计权衡
+- 范围模糊
+
+不确定时归类为“复杂”。
+
+### 2. 准备 Git 计划（主 worktree）
+
+必须先在主 worktree 中记录并检查：
+
+- `base_branch` / `trunk`
+- `git status --short`
+- `git branch --all`
+- `git worktree list --porcelain`
+
+派生：
+
+- `task_branch`: `opencat/<change-name>`
+- `worktree_path`: 将要承接本任务的 slot 路径
+- `idle_branch`: 该 slot 配对的闲置分支，固定为 `opencat/idle/<slot-name>`
+
+### 3. Purpose 阶段（主 worktree）
+
+**必须**在主 worktree 中调用 `openspec-propose`。
+
+此时**严禁**先把某个保留 worktree 抢占为任务态；先完成 purpose 文档与验证。
+
+### 4. 验证 Purpose
+
+```text
+openspec validate --change "<name>"
+```
+
+失败则修复后重试。
+
+### 5. 创建 Purpose 提交
+
+验证通过后：
+
+- 创建或更新 `<task_branch>`，基线必须来自最新 `<base_branch>`
+- 暂存 purpose 相关文件
+- 提交：`[propose] <change-name>: <描述>`
+- 主 worktree 切回 `<base_branch>`
+
+### 6. 领取 Worktree Slot
+
+按优先级查找可复用的 worktree slot：
+
+1. `../<repo-name>-worktree`
+2. `../<repo-name>-worktree-2`
+3. `../<repo-name>-worktree-3`
+4. 依次递增
+
+每个 slot 都必须满足“路径 + 闲置分支”配对关系：
+
+- `worktree_path = ../<slot-name>`
+- `idle_branch = opencat/idle/<slot-name>`
+
+**可复用条件**：
+
+- 路径存在，或这是将要新建的下一个 slot
+- 配对的 `idle_branch` 已存在，或本次会同时创建
+- 当前 worktree 处于 `idle_branch`
+- `git status --short` 为空
+
+**若 slot 路径不存在**：
+
+- 先基于最新 `<base_branch>` 创建配对的 `idle_branch`
+- 再创建 worktree，并让它直接检出到这个 `idle_branch`
+
+**若 slot 已存在但不满足可复用条件**：
+
+- **严禁**在本技能里硬修复
+- **必须**立刻转交 `opencat-cleanup`
+- 只有 cleanup 把该 slot 恢复到 idle state 后，才允许继续领取它
+
+### 7. 让 Slot 进入任务态
+
+选定 slot 后：
+
+- 在主 worktree 刷新 `<base_branch>`
+- 确认 `<task_branch>` 已包含最新 purpose commit
+- 在目标 worktree 中从 `idle_branch` 切换到 `<task_branch>`
+- 从这一刻起，该 worktree 进入 task state
+
+### 8. 开发前先 Rebase 到主干
+
+在 worktree 中正式开始 apply 阶段前，**必须**先把 `task_branch` rebase 到最新 `<base_branch>`：
+
+```text
+# 主 worktree 中刷新 trunk
+git fetch
+git pull --ff-only
+
+# 目标 worktree 中
+git rebase <base_branch>
+```
+
+若有冲突，AI 默认自行解决并继续 rebase；除非仓库状态已无法安全恢复，不因常规冲突暂停等待。
+
+### 9. Apply 阶段（Worktree）
+
+**必须**在目标 worktree 中调用 `openspec-apply-change`。
+
+### 10. 验证 Apply
+
+```text
+openspec validate --change "<name>"
+```
+
+验证失败则修复后重试。
+
+### 11. 创建 Apply 提交
+
+```text
+git add <相关文件>
+git commit -m "[apply] <change-name>: <描述>"
+```
+
+### 12. 合并前再次刷新主干并 Rebase
+
+```text
+# 主 worktree 中刷新 trunk
+git fetch
+git pull --ff-only
+
+# 目标 worktree 中
+git rebase <base_branch>
+```
+
+无论是否观察到主干推进，只要准备合并回 `<base_branch>`，都要先保证 `<task_branch>` 已 rebase 到最新 `<base_branch>`。
+
+### 13. Archive 阶段（Worktree）
+
+**必须**调用 `openspec-archive-change`。
+
+同时在项目目录下生成中文报告：
+
+```text
+.claude/docs/opencat/<timestamp(分钟)>-<change-name>.md
+```
+
+文件名只包含时间和 `change-name`，避免不同任务互相覆盖。
+
+### 14. 创建 Archive 提交
+
+```text
+git add <archive 相关文件>
+git commit -m "[archive] <change-name>: <中文标题>"
+```
+
+### 15. 合并回主干（主 worktree）
+
+```text
+git checkout <base_branch>
+git merge --no-ff "<task_branch>"
+```
+
+若 rebase 或 merge 有冲突，AI 默认自行解决并继续；**严禁**因常规冲突停下来等待确认。
+
+### 16. 结束时调用 `opencat-cleanup`
+
+任务 merge 回主干后，不在本技能里重复实现工程清理细节，而是**统一调用 `opencat-cleanup`**：
+
+- 删除已完成的任务分支
+- 把承接任务的 worktree 归还到自己的 `idle_branch`
+- 确认 retained worktree 全部回到干净、可复用状态
+- 收尾任何中途遗留的工程残留
+
+cleanup 完成后，必须满足以下结果：
+
+- `<task_branch>` 已删除
+- 相关 worktree 已回到自己的 `idle_branch`
+- 工作区干净
+- worktree 目录仍然保留
+
+## 工具使用规范
+
+### 职责边界
+
+#### `opencat-work`
+
+负责：
+
+- 在整个任务队列入口统一执行环境检查
+- 启动带猫咪身份的任务 SubAgent
+- 决定何时调用 `/opencat-task`
+
+不负责：
+
+- 接管单个 task 的实现细节
+
+#### `opencat-task`
+
+负责：
+
+- 固定在开始与结束时调用 `opencat-cleanup`
+- 驱动 purpose / apply / archive / merge 主链路
+- 在任务内处理常规异常收口、rebase、merge 与阶段提交
+
+不负责：
+
+- 队列级环境检查入口
+- 最终统一 `git push`
+
+#### `opencat-cleanup`
+
+负责：
+
+- 清理残留任务态 worktree
+- 恢复保留 worktree 到配对 `idle branch`
+- 删除已完成任务分支
+- 收敛异常工程状态
+
+调用规则：
+
+- **必须**在流程开始前调用一次
+- **必须**在 merge 回主干后再次调用一次
+- 若发现 retained worktree 异常、残留任务或闲置槽位异常，也应重新调用
+
+#### `openspec-propose`
+
+负责：
+
+- 生成 change 的 purpose 文档
+- 产出 proposal / design / specs / tasks 等 OpenSpec 变更材料
+
+调用规则：
+
+- **必须**在主 worktree 中调用
+- purpose 完成并验证通过前，**严禁**先领取 worktree slot
+
+#### `openspec-apply-change`
+
+负责：
+
+- 根据 `tasks.md` 执行实现阶段代码修改
+- 推进任务从“文档已定义”到“代码已落地”
+
+调用规则：
+
+- **必须**在目标 worktree 中调用
+- 调用前**必须**先把 `task_branch` rebase 到最新 `base_branch`
+
+#### `openspec-archive-change`
+
+负责：
+
+- 归档 OpenSpec 变更
+- 收束阶段性产出，为最终合并和文档记录提供基础
+
+调用规则：
+
+- **必须**在目标 worktree 中调用
+- 调用后**必须**补充中文归档报告并创建 `[archive]` 提交
+
+### 验证命令
+
+Purpose 与 Apply 两个阶段都**必须**使用以下命令验证：
+
+```text
+openspec validate --change "<name>"
+```
+
+若校验失败，默认先修复再重试；**严禁**把未通过校验的阶段直接推进到下一步。
+
+### 使用原则
+
+- 已有工具能负责的事情，**不要**在 `opencat-task` 中重复发明一套规则
+- 工具的职责边界不清时，优先保持“本技能负责编排，专用技能负责具体动作”
+- 如果工具运行中暴露出异常仓库状态，默认先收口、再重试，而不是暂停等待确认
+
+## 工程清理和同步
+
+本技能开始执行时，固定先调用一次 `opencat-cleanup`：
+
+- 清理可能残留的未提交变更
+- 清理未合并分支或异常 worktree
+- 确保保留 worktree 已回到可继续推进的状态
+
+若 cleanup 后仍存在无法解释的任务态 worktree、脏改动或分支异常，**严禁**直接继续主流程；必须继续执行收口动作，直到仓库进入可继续状态，或确认已无法继续任何有效步骤。
+
+若运行中出现以下情况：
+
+- 不明来源脏改动
+- 当前流程未创建的新 TODO
+- 新出现的任务态 worktree
+- 无法解释的分支或提交状态
+
+处理顺序固定为：
+
+1. **必须**先记录异常
+2. **必须**用独立 Git 提交收口
+3. 必要时**必须**重新执行一次 `opencat-cleanup`
+4. **必须**回到原任务链继续推进
+
+merge 回主干后，**必须**再次调用 `opencat-cleanup`，由它统一完成：
+
+- 删除 `task_branch`
+- 把承接任务的 worktree 归还到自己的 `idle_branch`
+- 让相关 retained worktree 恢复成干净、可复用状态
+- 收尾中途遗留的工程残留
+
+`opencat-task` 与上层流程的同步边界如下：
+
+- `opencat-task` **必须**完成 merge 与本地 cleanup 收口
+- `opencat-task` **不负责**最终自动 `git push`
+- 最终队列级 push 应由 `opencat-work` 或用户明确指令触发
+
+若 cleanup 自身失败：
+
+- **必须**先输出明确阻塞原因
+- 若仍存在任何可继续的收尾动作，则**必须**继续
+- 只有在无法继续任何有效步骤时，才允许停止流程
+
+## Git Worktree 使用规则
+
+### 核心概念
+
+| 术语 | 说明 |
+|------|------|
+| `trunk` | 基础分支，通常是 `main` 或 `master` |
+| `worktree slot` | 一个可复用的保留 worktree 路径，例如 `../<repo-name>-worktree-2` |
+| `idle branch` | 与某个 worktree slot 一一对应的闲置分支，例如 `opencat/idle/<slot-name>` |
+| `task branch` | 当前任务对应的工作分支，命名为 `opencat/<change-name>` |
+| `idle state` | worktree 当前位于自己的 `idle branch`，且 `git status --short` 为空 |
+| `task state` | worktree 当前不在 `idle branch` 上，而是在某个明确的 `task branch` 上 |
+
+### 命名约定
+
+- 主 worktree：项目根目录
+- worktree slot：`../<repo-name>-worktree`、`../<repo-name>-worktree-2`、`../<repo-name>-worktree-3` ...
+- slot 对应闲置分支：`opencat/idle/<slot-name>`
+- 任务分支：`opencat/<change-name>`
+
+### 状态机约束
+
+1. 创建或首次发现一个保留 worktree slot 时，**必须**同时存在它的配对 `idle branch`。
+2. worktree 处于闲置态时，**必须**同时满足：
+   - 当前分支是该 slot 的 `idle branch`
+   - 所有任务变更都已提交并合并回 `trunk`
+   - `git status --short` 为空
+3. worktree 领到任务后，**必须**切换到该任务的 `task branch`；此时它进入 task state。
+4. 保留 worktree **严禁**长期处于以下状态：
+   - detached HEAD
+   - 直接停留在 `trunk`
+   - 在 `idle branch` 上但工作区脏
+   - 停在无法解释的匿名提交上
+5. 任务结束后的标准收尾不是留在任务分支或主干，而是：
+   - merge 回 `trunk`
+   - 删除 `task branch`
+   - 切回配对的 `idle branch`
+   - 让 `idle branch` 对齐最新 `trunk`
+   - 确认 worktree 干净
+
+### 保留规则
+
+- worktree 目录是长期可复用槽位，**绝不删除**
+- 允许新增下一个 slot，但新增后必须立即建立配对 `idle branch`
+- 任何时刻都不应把“删除保留 worktree”当作默认收尾策略
 
 ## Git 使用规范
 
-- 三个检查点提交格式固定为 `[propose]` / `[apply]` / `[archive]`
-- 提交前必须检查 `git status`、`git diff`、`git log`
-- 只暂存当前阶段相关文件，不提交构建产物、缓存或密钥
-- 不自动推送；除非上层流程或用户明确要求
+### 分支规则
 
-细节**必须**读取 `${CLAUDE_SKILL_DIR}/reference/git-guidelines.md`。
+- `base_branch` / `trunk` 是唯一主干基线
+- 任务分支固定为 `opencat/<change-name>`
+- 若 `task_branch` 已存在且状态兼容，优先复用
+- 若命名冲突且状态不兼容，可自动派生带后缀的新任务分支
+- **严禁**直接改写 `base_branch` 历史
+
+### 提交规范
+
+#### 三个检查点提交
+
+| 提交 | 格式 |
+|------|------|
+| Purpose | `[propose] <name>: <描述>` |
+| Apply | `[apply] <name>: <描述>` |
+| Archive | `[archive] <name>: <中文标题>` |
+
+#### 提交前检查
+
+- 检查 `git status`
+- 检查 `git diff`
+- 检查 `git log`
+- 只暂存当前阶段相关文件
+- 不提交构建产物、缓存、密钥
+
+### Rebase 规则
+
+- 在 apply 开始前，**必须**先把 `task_branch` rebase 到最新 `<base_branch>`
+- 在 merge 回主干前，**必须**再次 rebase 到最新 `<base_branch>`
+- 遇到主干推进、分支分叉或常规冲突时，默认先 rebase，再自行解决冲突
+- 若冲突仍可安全处理，**严禁**因常规冲突暂停等待确认
+
+### Merge 规则
+
+回主干时使用：
+
+```text
+git checkout <base_branch>
+git merge --no-ff "<task_branch>"
+```
+
+要求：
+
+- merge 前必须确保 `task_branch` 已基于最新主干
+- merge 完成后必须交由 `opencat-cleanup` 删除任务分支并归还闲置态
+- 未 merge 到主干前，任务不得标记为完成
+
+### 异常变更收口
+
+若执行中出现当前流程未创建的新 TODO 或不明来源变更：
+
+- **严禁**暂停等待
+- **必须**先把异常变更做成独立提交收口
+- 然后再继续原任务阶段
+
+### 推送边界
+
+- `/opencat-task` 默认**不自动推送**
+- 只有上层流程或用户明确要求时，才执行 `git push`
+- 若需要最终统一 push，应交由 `opencat-work` 在整个队列结束后处理
 
 ## 文档解析和生成
 
-- 输入可以是 kebab-case 的 change 名称，也可以是自然语言描述
-- 自然语言输入时，必须先收敛成稳定的 `change-name`
-- archive 阶段**必须**生成中文报告 `.claude/docs/opencat/<timestamp>-<change-name>.md`
-- 报告至少覆盖基本信息、猫咪身份、动机、范围、规格影响与完成情况
+### 输入
 
-具体命名、文档字段和解析规则**必须**读取 `${CLAUDE_SKILL_DIR}/reference/document-protocol.md`。
+允许两类输入：
+
+- 已存在的变更名称（kebab-case）
+- 自然语言任务描述
+
+### `change-name` 生成规则
+
+若输入是自然语言描述，**必须**先收敛成稳定的 `change-name`：
+
+- 使用英文 kebab-case
+- 尽量短但保留业务含义
+- 避免使用时间戳、随机串或一次性噪音后缀
+- 后续 purpose / apply / archive 全流程必须使用同一个名称
+
+### Purpose 文档
+
+Purpose 阶段由 `openspec-propose` 生成，通常包含：
+
+- proposal
+- design
+- specs
+- tasks
+
+要求：
+
+- 先生成，再校验
+- 校验通过后才能创建 `[propose]` 提交
+
+### Archive 报告
+
+Archive 阶段除调用 `openspec-archive-change` 外，还**必须**生成中文报告：
+
+```text
+.claude/docs/opencat/<timestamp(分钟)>-<change-name>.md
+```
+
+文件名只包含时间和 `change-name`，避免不同任务相互覆盖。
+
+### Archive 报告最少字段
+
+报告至少包含：
+
+- 基本信息
+- 执行者身份信息
+- 变更动机
+- 变更范围
+- 规格影响
+- 任务完成情况
+
+### 执行者身份信息建议字段
+
+- 姓名
+- 品种
+- 职业
+- 经历
+- 性格
+- 口头禅
+- 邮箱
 
 ---
 
@@ -190,18 +681,18 @@ cleanup
 
 ## 关键文件
 
-- `${CLAUDE_SKILL_DIR}/reference/highest-principles.md`
-- `${CLAUDE_SKILL_DIR}/reference/workflow.md`
-- `${CLAUDE_SKILL_DIR}/reference/tool-usage.md`
-- `${CLAUDE_SKILL_DIR}/reference/cleanup-sync.md`
-- `${CLAUDE_SKILL_DIR}/reference/git-worktree-rules.md`
-- `${CLAUDE_SKILL_DIR}/reference/git-guidelines.md`
-- `${CLAUDE_SKILL_DIR}/reference/document-protocol.md`
-- `${CLAUDE_SKILL_DIR}/reference/notes.md`
+- `.claude/docs/opencat/`
 
 ## 注意事项
 
 - 默认自主决策并继续推进，不因常规不确定性暂停追问
 - 断点恢复时，**必须**优先依据仓库状态、change 文档和归档文档判断当前位置
-- 若细节冲突，以 `highest-principles` 优先，其次是主 `SKILL.md` 的工作流摘要，最后才参考其他 `reference/` 文件
-- Windows PowerShell 细节、异常边界和补充说明统一维护在 `${CLAUDE_SKILL_DIR}/reference/notes.md`
+- 当前未提交改动默认视为允许自动收口的工作流残留，不因这类改动单独中断 `opencat-task`
+- 但若判定为不明来源异常，仍要先独立提交收口
+- 请求范围模糊时，先收敛为最小可执行 change；若存在重大设计权衡，优先采用最小改动、最小行为变化方案
+- 如果验证结果不完全自信，先做最可能正确的修复并补充验证
+- 若无法完全剥离无关更改，优先缩小暂存范围；仍无法剥离时，记录风险后提交最小安全集合
+- 不使用 bash heredoc `$(cat <<'EOF' ...)`
+- 使用 PowerShell here-string 或多个 `-m` 参数
+- 不用 `&&` 链接命令，用分步执行或 `$LASTEXITCODE`
+- 文档维护时，若规则继续扩展，应优先直接更新本 `SKILL.md`，避免再把运行规则拆散到额外引用文件
