@@ -7,7 +7,7 @@
 
 `OpenCat Workflows` 为 `Claude Code` 和 `Cursor` 提供一组可复用的工作流技能。
 推荐优先以 `Claude Code` 插件形式安装；如果当前环境无法通过 marketplace 安装，也可以把 `skills/` 下的技能目录直接复制到自己的技能目录中作为降级方案。
-从 `0.2.2` 开始，项目以 5 个技能组成当前稳定执行模型：
+从 `0.2.3` 开始，项目以 5 个技能组成当前稳定执行模型：
 
 - `opencat-check` 负责环境与拓扑就绪检查
 - `opencat-cleanup` 负责残留收尾与空闲态归还
@@ -19,12 +19,12 @@
 
 ## 内置技能
 
-| 技能 | `0.2.2` 中的职责 |
+| 技能 | `0.2.3` 中的职责 |
 |------|------|
 | `opencat-check` | 检查 Git、Node.js、包管理器、OpenSpec 可用性，以及保留 worktree 拓扑是否健康 |
 | `opencat-cleanup` | 收尾中断任务，并把保留 worktree 恢复到各自配对的 `opencat/idle/<slot-name>` 分支 |
-| `opencat-task` | 在独立 worktree 中执行单个 OpenSpec 任务的 propose、apply、archive、merge 和最终 cleanup |
-| `opencat-work` | 读取 `TODO.md` 中已激活的任务，串行创建任务子 Agent，把真实执行委托给 `opencat-task`，并在队列结束后统一做 cleanup 与仓库发布 |
+| `opencat-task` | 执行单个 OpenSpec 任务的 propose、apply、archive、merge 和最终 cleanup；默认使用任务分支，只有显式带 `worktree` 时才切换到保留 worktree |
+| `opencat-work` | 读取 `TODO.md` 中已激活的任务，串行创建任务子 Agent，把真实执行委托给 `opencat-task`；只有显式要求时才向下游透传 worktree 模式 |
 | `opencat-agent` | 生成或复用猫咪身份，持久化为 Agent 文件，并为任务子 Agent 提供 Git 身份 |
 
 ## 执行模型
@@ -34,7 +34,7 @@
 当你已经知道明确的变更名称时，使用这一模式。
 
 1. 先运行 `opencat-check`
-2. 再运行 `opencat-task <change-name>`
+2. 再运行 `opencat-task <change-name>` 进入默认分支模式；若明确需要保留 worktree 隔离，再运行 `opencat-task worktree <change-name>`
 3. 让 `opencat-task` 在流程开始和结束时自行调用 `opencat-cleanup`
 
 `opencat-task` 是执行器，`opencat-check` 是就绪入口。
@@ -48,7 +48,7 @@
 3. `opencat-work` 再执行 `opencat-cleanup`
 4. `opencat-work` 选择一个已激活任务
 5. `opencat-work` 调用 `opencat-agent` 生成或复用猫咪身份
-6. 任务子 Agent 运行 `opencat-task`
+6. 任务子 Agent 运行 `opencat-task`，默认使用分支模式；只有显式要求时才启用 worktree 模式
 7. `opencat-work` 回写 `TODO.md` 与 `DONE.md`
 8. 全流程结束后，`opencat-work` 再执行一次 `opencat-cleanup`
 9. 最终 cleanup 之后，`opencat-work` 会在需要时统一执行最终的仓库 `git commit` 与 `git push`
@@ -68,10 +68,13 @@
 
 为了获得更稳定的行为，仓库最好还遵循以下约定：
 
-- 存在可复用的保留 worktree 槽位
-- 闲置分支命名为 `opencat/idle/<slot-name>`
 - 任务分支命名为 `opencat/<change-name>`
 - 使用 `opencat-work` 时提供轻量的 `TODO.md` 与 `DONE.md`
+
+如果你计划使用 worktree 模式，仓库还应额外满足：
+
+- 存在可复用的保留 worktree 槽位
+- 闲置分支命名为 `opencat/idle/<slot-name>`
 
 ## 安装
 
@@ -126,6 +129,7 @@ Cursor 也可以直接消费标准 `skills/`：
 /opencat-workflows:opencat-check
 /opencat-workflows:opencat-cleanup
 /opencat-workflows:opencat-task my-change-name
+/opencat-workflows:opencat-task worktree my-change-name
 /opencat-workflows:opencat-work
 ```
 
@@ -170,7 +174,7 @@ Cursor 也可以直接消费标准 `skills/`：
 ### 单个明确变更
 
 1. 运行 `opencat-check`
-2. 运行 `opencat-task <change-name>`
+2. 运行 `opencat-task <change-name>` 进入分支模式；若明确需要 worktree 模式，则运行 `opencat-task worktree <change-name>`
 3. 等待任务流程自行完成 cleanup
 
 ### 串行执行 TODO 队列
@@ -209,7 +213,7 @@ opencat-workflows/
 
 - OpenSpec CLI 未安装
 - 依赖的 OpenSpec 技能未安装
-- 保留 worktree 处于 dirty、detached，或仍停在 `trunk`
+- 在请求 worktree 模式时，保留 worktree 处于 dirty、detached，或仍停在 `trunk`
 - 仓库没有遵循预期的 idle-branch 或 task-branch 约定
 - `TODO.md` 中只有 backlog，没有任何已激活任务
 - `DONE.md` 没有遵循轻量追加记录格式

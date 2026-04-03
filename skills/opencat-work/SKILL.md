@@ -1,12 +1,14 @@
 ---
 name: opencat-work
-description: OpenCat 任务列表连续执行器。**最高守则**：AI 在已授权任务范围内**必须**全自动决策并持续推进，**严禁**因常规不确定性暂停等待；开始前**必须**先运行 `opencat-check` 与 `opencat-cleanup`，任务实现**必须**通过 `opencat-task`，结束后**必须**统一 cleanup 与 git 收口。
+description: OpenCat 任务列表连续执行器。**最高守则**：AI 在已授权任务范围内**必须**全自动决策并持续推进，**严禁**因常规不确定性暂停等待；开始前**必须**先运行 `opencat-check` 与 `opencat-cleanup`，任务实现**必须**通过 `opencat-task`，且只有当参数显式带 `worktree` 时才向下游启用 worktree 工作流，否则默认只走分支模式。
 compatibility: Requires `opencat-check`, `opencat-cleanup`, `opencat-task`, and `opencat-agent` skills to be available in the project.
 ---
 
 # /opencat-work - 任务列表连续执行器
 
 执行 `TODO.md` 中已显式激活的任务，通过带猫咪身份的 SubAgent 串行调用 `opencat-task` 逐个完成。**最高工作守则是 AI 全自动决策并持续推进**：只要任务仍在已授权范围内且仓库仍可继续操作，就**必须**继续执行、记录、收口和推进，**严禁**因常规不确定性、短时静默、局部异常或“想先确认一下”而暂停等待用户。环境检查统一交给 `opencat-check`，工程清理统一交给 `opencat-cleanup`，最终 Git 收口由本技能负责。
+
+本技能默认使用“分支模式”驱动队列；只有本次调用参数显式带 `worktree` 时，才把 worktree 模式透传给每个 `opencat-task` 子任务。
 
 本 `SKILL.md` 是 `/opencat-work` 的**单文件权威运行规范**。运行时不得依赖额外 `reference/` 文档才能理解核心规则；如历史目录下仍保留同名参考文件，仅视为维护期备份材料，不是运行前置条件。
 
@@ -19,21 +21,21 @@ compatibility: Requires `opencat-check`, `opencat-cleanup`, `opencat-task`, and 
 ## 🚨 最高准则
 
 1. **最高守则**：AI 在已授权任务范围内**必须**全自动决策、全自动推进；除非仓库已无法继续任何有效动作，否则**严禁**暂停等待用户确认。
-2. **必须**先执行一次 `opencat-check`，再执行一次 `opencat-cleanup`；只要任意保留 worktree 未回到 `idle branch`，就**严禁**领取新任务。
+2. **必须**先执行一次 `opencat-check`，再执行一次 `opencat-cleanup`；随后立刻判定本轮模式。只有显式带 `worktree` 时才要求下游走 worktree 模式，否则默认只走分支模式。
 3. **必须**只执行项目内 `TODO.md` 中显式激活的章节或任务；未激活内容一律视为 backlog。自动决策的边界是“已授权范围内自主推进”，**严禁**擅自扩大执行范围。
 4. **必须**通过 SubAgent 调用 `opencat-task` 完成具体任务；主 Agent **严禁**直接接管实现工作，除非已确认 SubAgent 无法继续且主流程仍可通过收口动作推进。
 5. **必须**串行运行任务 SubAgent；同一时刻只能存在一个活跃任务执行者。
 6. `TODO.md` 章节标题上的 `>` 是显式授权信号，除非用户明确要求，**严禁**新增、删除或改写；任务行上的 `>` 仅可在已激活章节内按流程维护。
 7. 对“修复”类任务，**必须**重新验证当前现状；**严禁**仅凭项目内 `DONE.md`、archive 或历史记录直接判定完成。
 8. 若执行中出现不明来源变更、未预期新 TODO 或残留任务态 worktree，**严禁**暂停等待；必须先独立收口，再继续原流程。
-9. 全流程结束后，**必须**再次执行 `opencat-cleanup`，然后统一完成主 worktree 的 `git commit` / `git push` 收口。
+9. 全流程结束后，**必须**再次执行 `opencat-cleanup`，然后统一完成主工作区的 `git commit` / `git push` 收口。
 
 ### 核心目标
 
 - **必须**在已授权任务范围内执行 AI 全自动决策、全自动推进
 - **必须**完成整个 OpenCat Work 队列的可执行部分
 - **必须**把当前仓库状态视为现实输入，而不是暂停理由
-- **必须**优先维持 worktree 状态机、任务隔离和最终收口的完整性
+- **必须**优先维持本轮所选模式的完整性：默认分支模式，显式 `worktree` 时才启用 worktree 模式
 
 ### 冲突裁决顺序
 
@@ -56,6 +58,29 @@ compatibility: Requires `opencat-check`, `opencat-cleanup`, `opencat-task`, and 
 
 若仍能继续记录、归档、清理、提交或推进下一步，就不应停止。
 
+## 执行模式
+
+### 模式判定
+
+只要满足以下任一条件，就视为本轮是 **worktree 模式**：
+
+- `/opencat-work` 调用参数显式带 `worktree`
+- 用户明确要求“这一轮使用 worktree”
+- 上游流程向本技能注入 `worktree: true` 或等价标记
+
+若以上条件均不满足，则本轮一律视为 **分支模式**：
+
+- **默认**不额外创建或要求 worktree
+- **默认**让每个 `opencat-task` 只创建和使用任务分支
+- **严禁**因为仓库里存在 worktree，就自动把整轮任务切换为 worktree 模式
+
+### 模式透传规则
+
+- 本轮模式一旦确定，**必须**在整个 `/opencat-work` 运行期间保持一致，除非用户明确要求中途切换
+- 启动每个 `opencat-task` SubAgent 时，**必须**把本轮模式显式写入提示
+- worktree 模式下，**必须**明确告诉 SubAgent：调用 `opencat-task` 时带 `worktree`
+- 分支模式下，**必须**明确告诉 SubAgent：调用 `opencat-task` 时不要带 `worktree`
+
 ## 工作流
 
 ### 阶段总览
@@ -64,9 +89,10 @@ compatibility: Requires `opencat-check`, `opencat-cleanup`, `opencat-task`, and 
 read TODO/DONE
 → check
 → cleanup
+→ decide mode
 → select active task
 → assign cat agent
-→ run opencat-task
+→ run opencat-task with selected mode
 → archive result
 → cleanup again
 → next task or finish
@@ -79,14 +105,24 @@ read TODO/DONE
 - **必须**读取项目内真实 `TODO.md` 与 `DONE.md`
 - **必须**识别活跃章节、活跃任务、普通 backlog
 - **必须**记录本轮已使用的猫咪姓名列表
+- **必须**在这一阶段就决定本轮模式是 `branch` 还是 `worktree`
 - 建立本轮任务视图，但此时**尚未**领取任务
 
 ### 2. 闸门检查
 
 - 固定先运行 `opencat-check`
 - 再运行 `opencat-cleanup`
-- 只有当仓库收敛到“主 worktree 可继续 + 所有保留 worktree 闲置”时，才允许进入任务选择
+
+worktree 模式下：
+
+- 只有当仓库收敛到“主工作区可继续 + 所有保留 worktree 闲置”时，才允许进入任务选择
 - 若 cleanup 后仍存在非闲置 worktree、残留任务分支或不可解释脏改动，则**严禁**领取新任务；**必须**继续执行收口和恢复动作，而不是暂停等待
+
+分支模式下：
+
+- 只要求“主工作区可继续 + 当前分支工作流可安全执行”
+- 即便仓库里存在保留 worktree，也**不得**因此自动切换到 worktree 模式
+- 若 cleanup 发现异常 worktree，仍**必须**优先记录并尽量收口；但是否领取新任务，应以当前分支工作流是否可安全继续为准
 
 ### 3. 选择候选任务
 
@@ -105,6 +141,9 @@ read TODO/DONE
 - 在注入提示中**必须**明确：
   - 使用猫咪身份
   - 调用 `opencat-task`
+  - 当前模式是 `branch` 还是 `worktree`
+  - 若是 worktree 模式，则显式带 `worktree`
+  - 若是分支模式，则显式说明不要带 `worktree`
   - 不得向主 Agent 反向追问常规决策
   - 必须默认自主决策并持续推进
 
@@ -122,10 +161,10 @@ read TODO/DONE
 - **必须**记录阻塞原因
 - 若仍有可继续的收尾或下一可执行任务，**必须**继续推进
 
-### 6. 最终收口
+### 7. 最终收口
 
 - 当所有活跃任务完成，或确认无更多可执行任务时，**必须**再执行一次最终 `opencat-cleanup`
-- 若主 worktree 仍有未提交改动，**必须**执行最终提交
+- 若主工作区仍有未提交改动，**必须**执行最终提交
 - 若当前分支存在未推送提交，**必须**执行 `git push`
 - **必须**输出最终状态报告
 
@@ -145,7 +184,7 @@ read TODO/DONE
   - 在失败任务行后追加注释，例如 `<!-- 失败: 原因 -->`
 - 除此之外，尤其是章节标题文本，必须逐字保持不变
 - 保存前**必须**对章节标题做逐字快照比对；若标题发生任何变化，必须放弃该次写回并改用更小粒度编辑
-- `DONE.md` 
+- `DONE.md`
   - 每条记录必须使用格式：- [时间（分钟）] <任务名称> — <change-name>
   - 不能有别的签名，总结等内容
   - 要求保持精简，不写长段说明，一行一条记录
@@ -154,14 +193,15 @@ read TODO/DONE
 
 - 每个任务**必须**使用一只新的猫咪执行者，**严禁**复用同一身份
 - 猫咪身份统一由 `opencat-agent` 生成；本技能**严禁**内联造猫逻辑
-- SubAgent **必须**在 worktree 中设置猫咪身份的 Git 用户信息
-- SubAgent **必须**在 worktree 中设置猫咪身份的 `git config user.email`
+- SubAgent **必须**在实际执行位置设置猫咪身份的 Git 用户信息
+- SubAgent **必须**在实际执行位置设置猫咪身份的 `git config user.email`
 - **严禁**沿用主 Agent 或默认全局身份提交代码
 - 主 Agent **必须**只做队列编排、状态维护、异常收口和最终汇总
 - 子 Agent **必须**自主决策；遇到常规不确定性时，**必须**选择最保守且可继续的方案并记录问题，**严禁**把常规决策回抛给用户
 - 主 Agent 负责：
   - 读取和解析任务队列
   - 调用 `opencat-check` / `opencat-cleanup`
+  - 决定并透传本轮模式
   - 选择任务
   - 生成猫咪身份
   - 启动与轮询 SubAgent
@@ -176,9 +216,11 @@ read TODO/DONE
 - 任务 SubAgent 负责：
   - 使用猫咪身份执行任务
   - 在内部调用 `opencat-task`
+  - 按注入模式执行分支工作流或 worktree 工作流
   - 自主完成实现、验证、归档与收尾
   - 在已授权范围内自行裁决常规技术与流程分歧
 - 任务 SubAgent 不负责：
+  - 擅自改写主 Agent 指定的模式
   - 把常规不确定性上抛给主 Agent
   - 使用通用 Git 身份提交代码
   - 因“想先确认一下”而暂停
@@ -195,27 +237,43 @@ read TODO/DONE
 - `opencat-cleanup` 负责残留任务、异常 worktree、闲置分支恢复与工程收尾
 - 任何非预期变更都**必须**先收口，再继续流程；**严禁**把异常当作暂停理由
 - `opencat-task` 不负责最终自动 push；真正的 push **必须**只在 `opencat-work` 全流程末尾统一执行
-- 新任务前必须满足：
-  - `opencat-check` 已完成
-  - `opencat-cleanup` 已完成
-  - 所有保留 worktree 都已处于闲置态
-  - 主 worktree 处于可继续推进状态
-- 只要有一个条件不满足，就不得领取新任务；但这不等于允许暂停整个流程，而是**必须**继续执行恢复、清理和收口动作
-- 若运行中出现以下情况：
-  - 不明来源脏改动
-  - 当前流程未创建的新 TODO
-  - 新出现的任务态 worktree
-  - 无法解释的分支或提交状态
-- 处理顺序固定为：
-  1. **必须**先记录异常
-  2. **必须**用独立 Git 提交收口
-  3. 必要时**必须**重新执行一次 `opencat-cleanup`
-  4. **必须**回到原任务链继续推进
+
+worktree 模式下，新任务前必须满足：
+
+- `opencat-check` 已完成
+- `opencat-cleanup` 已完成
+- 所有保留 worktree 都已处于闲置态
+- 主工作区处于可继续推进状态
+
+分支模式下，新任务前必须满足：
+
+- `opencat-check` 已完成
+- `opencat-cleanup` 已完成
+- 主工作区处于可继续推进状态
+- 当前模式不会因为历史 worktree 残留而被强制改写
+
+只要有一个当前模式的关键条件不满足，就不得领取新任务；但这不等于允许暂停整个流程，而是**必须**继续执行恢复、清理和收口动作。
+
+若运行中出现以下情况：
+
+- 不明来源脏改动
+- 当前流程未创建的新 TODO
+- 新出现的任务态 worktree
+- 无法解释的分支或提交状态
+
+处理顺序固定为：
+
+1. **必须**先记录异常
+2. **必须**用独立 Git 提交收口
+3. 必要时**必须**重新执行一次 `opencat-cleanup`
+4. **必须**回到原任务链继续推进
+
 - 每完成一个任务后，都**必须**再次执行一次 `opencat-cleanup`
-- 只有 cleanup 确认所有保留 worktree 闲置后，才允许继续下一项
+- worktree 模式下，只有 cleanup 确认所有保留 worktree 闲置后，才允许继续下一项
+- 分支模式下，只要 cleanup 确认主工作区与分支工作流仍可继续，就允许继续下一项
 - 当所有可执行任务处理完毕后：
   1. 再执行一次最终 `opencat-cleanup`
-  2. 回到主 worktree
+  2. 回到主工作区
   3. 若有未提交改动，执行最终提交
   4. 若分支 ahead > 0，执行 `git push`
   5. 若无改动且已同步，明确记录“无需额外 commit / push”
@@ -230,6 +288,7 @@ read TODO/DONE
 ## OpenCat Run Task
 
 **当前任务:** <任务名称>
+**模式:** branch|worktree
 **优先级:** P1|P2|P3
 **猫咪执行者:** <猫咪姓名>（<职业>·<品种>）
 **Cleanup:** ready|continuing|blocked
@@ -240,8 +299,8 @@ read TODO/DONE
 
 ## Success / Failure
 
-- SUCCESS: 已显式激活的任务被按顺序执行完成， `TODO.md` / `DONE.md` 正确更新，所有 worktree 回到闲置态，主分支完成最终 Git 收口
-- FAILURE: `check + cleanup` 后仍无法进入可执行状态，或最终 cleanup / push 失败且已无任何可继续步骤
+- SUCCESS: 已显式激活的任务被按顺序执行完成，`TODO.md` / `DONE.md` 正确更新；若为 worktree 模式，所有保留 worktree 回到闲置态；若为分支模式，所有子任务均以分支模式完成；主分支完成最终 Git 收口
+- FAILURE: `check + cleanup` 后仍无法进入当前模式的可执行状态，或最终 cleanup / push 失败且已无任何可继续步骤，或主 Agent 错误地把未带 `worktree` 的任务强制转成 worktree 模式
 
 ## 关键文件
 
@@ -261,4 +320,5 @@ read TODO/DONE
 - 自动决策能力只用于“已激活任务如何推进”，不用来“替用户扩大授权范围”
 - “修复”类任务天然带有验证义务，需要重新确认 bug 是否仍存在、现有实现是否已覆盖、是否有回归路径
 - 长时间静默不等于卡死；如无明确失败信号，必须按“仍在执行”处理
+- 本技能只负责模式判定与透传；真正的 worktree 细节由 `opencat-task` 负责
 - 文档维护时，若规则继续扩展，应优先直接更新本 `SKILL.md`，避免再把运行规则拆散到额外引用文件
