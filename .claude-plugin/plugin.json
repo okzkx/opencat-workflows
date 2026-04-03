@@ -1,6 +1,6 @@
 {
   "name": "opencat-workflows",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "OpenCat workflow skills for prerequisite checks, branch-first and optional-worktree task execution, cleanup, and TODO-driven task orchestration.",
   "author": {
     "name": "opencat"

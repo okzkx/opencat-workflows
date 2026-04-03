@@ -6,7 +6,7 @@ compatibility: Requires `opencat-check`, `opencat-cleanup`, `opencat-task`, and 
 
 # /opencat-work - 任务列表连续执行器
 
-执行 `TODO.md` 中已显式激活的任务，通过带猫咪身份的 SubAgent 串行调用 `opencat-task` 逐个完成。**最高工作守则是 AI 全自动决策并持续推进**：只要任务仍在已授权范围内且仓库仍可继续操作，就**必须**继续执行、记录、收口和推进，**严禁**因常规不确定性、短时静默、局部异常或“想先确认一下”而暂停等待用户。环境检查统一交给 `opencat-check`，工程清理统一交给 `opencat-cleanup`，最终 Git 收口由本技能负责。
+执行 `TODO.md` 中已显式激活的任务，通过由 `opencat-agent` 提供身份的任务 SubAgent 串行调用 `opencat-task` 逐个完成。**最高工作守则是 AI 全自动决策并持续推进**：只要任务仍在已授权范围内且仓库仍可继续操作，就**必须**继续执行、记录、收口和推进，**严禁**因常规不确定性、短时静默、局部异常或“想先确认一下”而暂停等待用户。环境检查统一交给 `opencat-check`，工程清理统一交给 `opencat-cleanup`，最终 Git 收口由本技能负责。
 
 本技能默认使用“分支模式”驱动队列；只有本次调用参数显式带 `worktree` 时，才把 worktree 模式透传给每个 `opencat-task` 子任务。
 
@@ -91,7 +91,7 @@ read TODO/DONE
 → cleanup
 → decide mode
 → select active task
-→ assign cat agent
+→ assign task agent (opencat-agent)
 → run opencat-task with selected mode
 → archive result
 → cleanup again
@@ -104,7 +104,7 @@ read TODO/DONE
 
 - **必须**读取项目内真实 `TODO.md` 与 `DONE.md`
 - **必须**识别活跃章节、活跃任务、普通 backlog
-- **必须**记录本轮已使用的猫咪姓名列表
+- **必须**记录本轮已使用的执行者标识列表（如姓名等，以 `opencat-agent` 产出为准）
 - **必须**在这一阶段就决定本轮模式是 `branch` 还是 `worktree`
 - 建立本轮任务视图，但此时**尚未**领取任务
 
@@ -135,11 +135,11 @@ worktree 模式下：
 - 若候选任务尚未带任务级 `>`，**必须**在其所属活跃章节内将其标记为当前任务
 - 编辑项目内真实 `TODO.md` 时**必须**仅进行最小粒度任务行修改
 - 保存前**必须**检查章节标题是否逐字保持不变
-- **必须**调用 `opencat-agent` 生成本轮唯一猫咪身份，并记录已使用姓名
-- **必须**以猫咪 Prompt 片段启动 SubAgent
+- **必须**调用 `opencat-agent` 生成本轮唯一任务执行者身份，并记录已使用标识（不得与本轮已用执行者重复）
+- **必须**将 `opencat-agent` 给出的身份与行为约束（含 Git 用户信息要求）原样纳入 SubAgent 启动提示
 - SubAgent **必须**在内部调用 `opencat-task` 完成完整工作流
 - 在注入提示中**必须**明确：
-  - 使用猫咪身份
+  - 使用该轮 `opencat-agent` 产出的执行者身份（具体人设、字段与语气**仅**以 `opencat-agent` 为准，本技能不假定任何固定形象）
   - 调用 `opencat-task`
   - 当前模式是 `branch` 还是 `worktree`
   - 若是 worktree 模式，则显式带 `worktree`
@@ -191,10 +191,9 @@ worktree 模式下：
 
 ## 智能体管理
 
-- 每个任务**必须**使用一只新的猫咪执行者，**严禁**复用同一身份
-- 猫咪身份统一由 `opencat-agent` 生成；本技能**严禁**内联造猫逻辑
-- SubAgent **必须**在实际执行位置设置猫咪身份的 Git 用户信息
-- SubAgent **必须**在实际执行位置设置猫咪身份的 `git config user.email`
+- 每个任务**必须**使用一个新的任务执行者身份，**严禁**在本轮队列内复用同一执行者标识
+- 执行者身份统一由 `opencat-agent` 生成与持久化；本技能**严禁**内联编造人设或替代 `opencat-agent` 的档案格式
+- SubAgent **必须**在实际执行位置按 `opencat-agent` 要求设置 Git `user.name` / `user.email`（或该技能规定的等价配置）
 - **严禁**沿用主 Agent 或默认全局身份提交代码
 - 主 Agent **必须**只做队列编排、状态维护、异常收口和最终汇总
 - 子 Agent **必须**自主决策；遇到常规不确定性时，**必须**选择最保守且可继续的方案并记录问题，**严禁**把常规决策回抛给用户
@@ -203,7 +202,7 @@ worktree 模式下：
   - 调用 `opencat-check` / `opencat-cleanup`
   - 决定并透传本轮模式
   - 选择任务
-  - 生成猫咪身份
+  - 调用 `opencat-agent` 获取本轮执行者身份
   - 启动与轮询 SubAgent
   - 更新项目内真实 `TODO.md` / `DONE.md`
   - 做最终 Git 收口
@@ -214,7 +213,7 @@ worktree 模式下：
   - 绕过 `opencat-task` 直接在主上下文完成子任务
   - 因常规不确定性暂停等待用户确认
 - 任务 SubAgent 负责：
-  - 使用猫咪身份执行任务
+  - 按 `opencat-agent` 产出的身份与规则执行任务
   - 在内部调用 `opencat-task`
   - 按注入模式执行分支工作流或 worktree 工作流
   - 自主完成实现、验证、归档与收尾
@@ -290,7 +289,7 @@ worktree 模式下，新任务前必须满足：
 **当前任务:** <任务名称>
 **模式:** branch|worktree
 **优先级:** P1|P2|P3
-**猫咪执行者:** <猫咪姓名>（<职业>·<品种>）
+**任务执行者:** <由 `opencat-agent` 给出的展示摘要，如「名称（角色·标签）」；字段以该技能当前定义为准>
 **Cleanup:** ready|continuing|blocked
 **状态:** 执行中|完成|失败
 

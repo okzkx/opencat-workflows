@@ -6,6 +6,8 @@ compatibility: Requires `opencat-work` skill to consume the generated identity.
 
 # /opencat-agent - 猫咪 Agent 身份生成器
 
+**边界**：任务执行者的具体人设、语气与档案字段**仅**在本技能中定义；`opencat-work` 与 `opencat-task` 只消费本技能的产出（如 Agent 文件路径、Git 配置要求、注入片段），不假定任何固定物种或角色。本仓库随附的默认文案以拟人化猫咪为例；若你改写本 `SKILL.md`，执行者可以是任意智能体形象，下游技能无需同步修改。
+
 根据任务内容即时生成一只拟人化猫咪的完整身份，并持久化为标准的 Claude Agent 定义文件。每只猫都是一个可复用的 SubAgent，拥有自己的姓名、品种、职业、经历和性格。
 
 ## 🚨 核心不可违反规则

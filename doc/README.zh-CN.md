@@ -7,25 +7,25 @@
 
 `OpenCat Workflows` 为 `Claude Code` 和 `Cursor` 提供一组可复用的工作流技能。
 推荐优先以 `Claude Code` 插件形式安装；如果当前环境无法通过 marketplace 安装，也可以把 `skills/` 下的技能目录直接复制到自己的技能目录中作为降级方案。
-从 `0.2.3` 开始，项目以 5 个技能组成当前稳定执行模型：
+从 `0.2.4` 开始，项目以 5 个技能组成当前稳定执行模型：
 
 - `opencat-check` 负责环境与拓扑就绪检查
 - `opencat-cleanup` 负责残留收尾与空闲态归还
 - `opencat-task` 负责单个 OpenSpec 变更流程
 - `opencat-work` 负责 `TODO.md` 串行任务队列
-- `opencat-agent` 负责为任务子 Agent 生成并复用猫咪身份
+- `opencat-agent` 负责为任务子 Agent 生成并复用执行者身份（具体人设仅在该技能内定义）
 
 本包不内置 OpenSpec。完整任务执行仍然依赖目标环境中已经可用的 OpenSpec CLI 与相关 OpenSpec 技能。
 
 ## 内置技能
 
-| 技能 | `0.2.3` 中的职责 |
+| 技能 | `0.2.4` 中的职责 |
 |------|------|
 | `opencat-check` | 检查 Git、Node.js、包管理器、OpenSpec 可用性，以及保留 worktree 拓扑是否健康 |
 | `opencat-cleanup` | 收尾中断任务，并把保留 worktree 恢复到各自配对的 `opencat/idle/<slot-name>` 分支 |
 | `opencat-task` | 执行单个 OpenSpec 任务的 propose、apply、archive、merge 和最终 cleanup；默认使用任务分支，只有显式带 `worktree` 时才切换到保留 worktree |
 | `opencat-work` | 读取 `TODO.md` 中已激活的任务，串行创建任务子 Agent，把真实执行委托给 `opencat-task`；只有显式要求时才向下游透传 worktree 模式 |
-| `opencat-agent` | 生成或复用猫咪身份，持久化为 Agent 文件，并为任务子 Agent 提供 Git 身份 |
+| `opencat-agent` | 生成或复用任务执行者身份，持久化为 Agent 文件，并规定任务子 Agent 的 Git 身份用法 |
 
 ## 执行模型
 
