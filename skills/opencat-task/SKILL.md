@@ -1,12 +1,12 @@
 ---
 name: opencat-task
 description: OpenSpec 单任务分阶段执行器。**最高守则**：AI 在已授权单任务范围内**必须**默认自动决策并持续推进，**严禁**因常规不确定性暂停等待；**必须**先判定执行模式，只有参数显式带 `worktree` 时才走 worktree 工作流，否则默认仅创建任务分支；开始和结束都**必须**调用 `opencat-cleanup`，且**严禁**接管 `opencat-work` 的队列调度或最终统一 push。
-compatibility: Requires `opencat-cleanup`, `openspec-propose`, `openspec-apply-change`, and `openspec-archive-change` skills to be available. 环境检查入口由 `opencat-work` 统一处理。
+compatibility: Requires `opencat-cleanup`, `openspec-propose`, `openspec-apply-change`, and `openspec-archive-change` skills to be available. 正常链路下环境检查入口由 `opencat-work` 统一处理，`opencat-task` 不重复执行 `opencat-check`。
 ---
 
 # OpenCat Task - OpenSpec 单任务工作流
 
-端到端执行单个 OpenSpec change：从 propose 到 apply，再到 archive 和 merge。默认使用“任务分支模式”完成全部流程；只有调用参数、上游注入提示或结构化参数中显式带 `worktree` 时，才切换到“worktree 模式”。环境入口检查由 `opencat-work` 负责，工程清理与 worktree 闲置态恢复由 `opencat-cleanup` 负责。
+端到端执行单个 OpenSpec change：从 propose 到 apply，再到 archive 和 merge。默认使用“任务分支模式”完成全部流程；只有调用参数、上游注入提示或结构化参数中显式带 `worktree` 时，才切换到“worktree 模式”。正常队列链路中的环境入口检查由 `opencat-work` 统一负责，工程清理与 worktree 闲置态恢复由 `opencat-cleanup` 负责。
 
 ## 触发条件
 

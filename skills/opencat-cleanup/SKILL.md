@@ -1,6 +1,6 @@
 ---
 name: opencat-cleanup
-description: 清理 `opencat-task` 残留。**必须**先收尾 OpenSpec active changes、**严禁**误删未合并任务、**必须**让所有保留 worktree 回到闲置分支。开始新任务前或仓库残留时使用。
+description: 清理 OpenCat 工作流残留。**必须**先收尾 OpenSpec active changes、**严禁**误删未合并任务、**必须**让所有保留 worktree 回到闲置分支。用于 `opencat-work` 的队列开场/收尾，以及 `opencat-task` 的任务内清理。
 compatibility: Requires a git repository that uses the OpenCat idle-branch/task-branch worktree workflow from `opencat-task`.
 ---
 
@@ -33,7 +33,8 @@ compatibility: Requires a git repository that uses the OpenCat idle-branch/task-
 ## 调用约定
 
 - `opencat-work` 在开始跑 TODO 队列时，固定先调用一次 `opencat-cleanup`
-- `opencat-task` 在完成 merge 回主干后，固定再调用一次 `opencat-cleanup`
+- `opencat-work` 在整轮任务结束时，固定再调用一次最终 `opencat-cleanup`
+- `opencat-task` 在开始时和完成 merge 回主干后，各固定调用一次 `opencat-cleanup`
 - `opencat-cleanup` 是唯一负责工程残留、分支收尾、归还 `idle branch` 的技能
 - `opencat-work` / `opencat-task` 不应在各自文档里重复实现完整 cleanup 细节，只保留调用点与结果要求
 

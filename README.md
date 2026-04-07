@@ -9,7 +9,7 @@
 
 `OpenCat Workflows` is a reusable workflow package for `Claude Code` and `Cursor`.
 The recommended distribution model is to install it as a `Claude Code` plugin. If marketplace installation is not available in your environment, you can copy the directories under `skills/` into your own skills folder as a fallback.
-Version `0.2.5` standardizes the current execution model around five skills:
+Version `0.2.6` standardizes the current execution model around five skills:
 
 - `opencat-check` for environment and topology readiness
 - `opencat-cleanup` for residue recovery and idle-state convergence
@@ -21,12 +21,12 @@ This package does not bundle OpenSpec itself. Full task execution still depends 
 
 ## Included Skills
 
-| Skill | Role in `0.2.5` |
+| Skill | Role in `0.2.6` |
 |------|------|
 | `opencat-check` | Verifies Git, Node.js, package manager, OpenSpec availability, and retained worktree topology |
 | `opencat-cleanup` | Finishes interrupted work safely and returns retained worktrees to their paired `opencat/idle/<slot-name>` branches |
 | `opencat-task` | Runs one OpenSpec task through propose, apply, archive, merge, and final cleanup, using a task branch by default and switching to a retained worktree only when `worktree` is explicitly requested |
-| `opencat-work` | Reads activated items from `TODO.md`, creates one task subagent at a time, delegates real execution to `opencat-task`, and forwards worktree mode only when it is explicitly requested |
+| `opencat-work` | Reads activated items from `TODO.md`, consumes one runnable task at a time, re-reads the real queue after each task, delegates real execution to `opencat-task`, and forwards worktree mode only when it is explicitly requested |
 | `opencat-agent` | Generates or reuses a task-subagent persona, persists it as an Agent file, and defines Git identity rules for the executor |
 
 ## Execution Model
@@ -51,9 +51,10 @@ Use this when work should be pulled from `TODO.md`.
 4. `opencat-work` selects one activated task
 5. `opencat-work` calls `opencat-agent` to generate or reuse a cat identity
 6. The task subagent runs `opencat-task`, defaulting to branch mode unless `worktree` is explicitly requested
-7. `opencat-work` updates `TODO.md` and `DONE.md`
-8. `opencat-work` finishes with one more `opencat-cleanup`
-9. After final cleanup, `opencat-work` performs the final repository `git commit` and `git push` when needed
+7. After the current task finishes, `opencat-work` updates `TODO.md` and `DONE.md`, then re-reads the real queue before deciding the next task
+8. New runnable items added under already activated sections are treated as normal queue input, not as an automatic error
+9. `opencat-work` finishes with one more `opencat-cleanup`
+10. After final cleanup, `opencat-work` performs the final repository `git commit` and `git push` when needed
 
 Only one task subagent is allowed at a time. Queue execution is intentionally serial.
 
@@ -183,7 +184,7 @@ In this example, `Task A` and `Task B` are runnable. `Backlog Task C` is not.
 
 1. Mark an active section or task in `TODO.md`
 2. Run `opencat-work`
-3. Wait for the serial queue to finish
+3. Let `opencat-work` consume one task at a time and re-read the real `TODO.md` / `DONE.md` after each completed task
 4. Review `DONE.md`
 
 If you changed canonical skills, copy the updated skill directories again before validating them in Cursor.
