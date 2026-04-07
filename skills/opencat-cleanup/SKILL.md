@@ -1,20 +1,21 @@
 ---
 name: opencat-cleanup
-description: 清理 OpenCat 工作流残留。**必须**先收尾 OpenSpec active changes、**严禁**误删未合并任务、**必须**让所有保留 worktree 回到闲置分支。用于 `opencat-work` 的队列开场/收尾，以及 `opencat-task` 的任务内清理。
+description: 清理仓库未提交文件，把仓库收敛回可重新进入队列的主干态。**必须**先收尾 OpenSpec active changes、**严禁**误删未合并任务、**必须**让所有保留 worktree 回到闲置分支；凡发现仍承载成果的分支，都必须先以贴合实际改动的自定义描述提交收口，再并回 `trunk`，所有 `idle branch` 也必须同步到最新 `trunk`。
 compatibility: Requires a git repository that uses the OpenCat idle-branch/task-branch worktree workflow from `opencat-task`.
 ---
 
 # OpenCat Cleanup
 
-清理 `opencat-task` 执行后的残留。工程收尾、分支清理、归还 `idle branch` 和 retained worktree 收敛都以本技能为唯一权威来源。
+清理仓库未提交文件，清理 `opencat-task` 执行后的残留。工程收尾、分支清理、归还 `idle branch` 和 retained worktree 收敛都以本技能为唯一权威来源。
 
 ## 🚨 核心不可违反规则
 
 1. **必须**先收尾 OpenSpec active changes，再清理 Git 残留；严禁先做表面分支清扫。
 2. **严禁**误删未合并任务分支；只要还有未合并提交，就**必须**优先续做该任务。
-3. **必须**自动提交未提交改动，再继续判断分支 / worktree 去向。
-4. **必须**把所有保留 worktree 恢复到各自的 `idle branch`，严禁让它们停在 `trunk`、detached 或脏状态。
-5. **必须**默认自主决断并继续收敛；最多记录问题，不因常规不确定性暂停询问用户。
+3. **必须**先基于实际改动生成自定义描述提交，再继续判断分支 / worktree 去向；严禁用空泛 `checkpoint` 之类占位提交敷衍收口。
+4. 只要任何非 `trunk` 分支仍承载独有提交，就**必须**先完成提交收口并合并回 `trunk`；所有 `idle branch` 也**必须**保持与最新 `trunk` 一致。
+5. **必须**把所有保留 worktree 恢复到各自的 `idle branch`，严禁让它们停在 `trunk`、detached 或脏状态。
+6. **必须**默认自主决断并继续收敛；最多记录问题，不因常规不确定性暂停询问用户。
 
 ## 最高准则
 
@@ -26,7 +27,7 @@ compatibility: Requires a git repository that uses the OpenCat idle-branch/task-
 
 - OpenSpec 中未归档的 change 先实现并归档
 - 未合并的任务继续执行，而不是半途废弃
-- 已合并的任务分支残留被删除
+- 已合并或已收口的分支残留被删除
 - 每个保留 worktree 最终回到自己的 `idle branch`
 - 在所有 worktree 都处于闲置态之前，不允许开始执行新的 TODO List
 
@@ -66,11 +67,11 @@ compatibility: Requires a git repository that uses the OpenCat idle-branch/task-
 
 ### 收敛原则
 
-1. **先自动提交，再变基到主干，再判断去向**
-   - 只要扫描到未提交变更，就先自动提交到当前逻辑分支，再变基到最新 `trunk`。
+1. **先生成自定义描述提交，再变基到主干，再判断去向**
+   - 只要扫描到未提交变更，或发现某个非 `trunk` 分支仍承载需要收口的成果，就先整理改动，并以贴合实际内容的自定义描述提交到当前逻辑分支，再变基到最新 `trunk`。
    - 变基目的是防止分支与主干产生交叉历史（分支交叉）。
-   - 若是任务分支（`opencat/<task-name>`），变基后合并回 `trunk`；若是闲置分支（`opencat/idle/<slot-name>`），变基后保持在闲置分支以保持与主干一致。
-   - 推荐提交信息：`chore(opencat-cleanup): checkpoint <slot-or-branch>`
+   - 若是任务分支，或其他可明确判定仍承载成果的非 `trunk` 分支，变基后都必须合并回 `trunk`；若是闲置分支（`opencat/idle/<slot-name>`），变基后保持在闲置分支以保持与主干一致。
+   - 提交信息必须根据实际改动自定义生成，准确说明该分支本次收口的内容与目的。
 2. **闲置分支是唯一合法待命状态**
    - 每个保留 worktree slot 都必须有一个一一对应的 `idle branch`，推荐命名为 `opencat/idle/<slot-name>`。
    - worktree 处于闲置状态时，必须在该 `idle branch` 上且工作区干净。
@@ -128,6 +129,7 @@ cleanup 的职责就是把所有非 `idle-ready` 状态最终收敛成：
    - 检查该闲置分支是否存在
 
 5. 识别候选残留
+   - 任何相对 `trunk` 仍有独有提交的非 `trunk` 分支
    - 分支名匹配 `opencat/*` 且不是 `opencat/idle/*`
    - 保留 worktree 不在自己的 `idle branch`
    - worktree 处于 detached / trunk / dirty 状态
@@ -164,7 +166,7 @@ cleanup 的职责就是把所有非 `idle-ready` 状态最终收敛成：
 
 ### 情况 A：worktree 或主仓有未提交变更
 
-满足任一条件即可视为“必须先自动提交”：
+满足任一条件即可视为“必须先生成自定义描述提交”：
 
 - 主 worktree 有未提交变更
 - 保留 worktree 处于 `idle-dirty`
@@ -174,19 +176,19 @@ cleanup 的职责就是把所有非 `idle-ready` 状态最终收敛成：
 处理方式：
 
 1. 若当前已经在明确分支上：
-   - 直接把未提交改动自动提交到当前分支
+   - 先整理本分支实际改动，并以贴合内容的自定义描述提交到当前分支
 2. 若当前是 detached / trunk / unknown 状态：
    - 先根据 active change、最近一次 OpenCat 提交、分支名语义推断其任务名
-   - 尽量先把它附着到对应的任务分支，再自动提交
+   - 尽量先把它附着到对应的任务分支，再生成贴合实际内容的自定义描述提交
    - 若仍无法可靠映射，创建一个临时恢复任务分支，例如 `opencat/recover/<slot-name>-<shortsha>`，避免继续留在 detached 状态
-3. 自动提交后，**必须将当前分支变基到最新 `trunk`**：
+3. 完成自定义描述提交后，**必须将当前分支变基到最新 `trunk`**：
    - `git fetch` 刷新远端
    - `git rebase <trunk>` 将当前分支变基到最新主干
    - 遇到冲突时自行解决并继续 rebase
    - **目的**：避免分支与主干产生交叉历史
-4. 若当前分支是任务分支（`opencat/<task-name>`），变基后合并回 `trunk`：
-   - 切到主 worktree，执行 `git merge --no-ff “<task_branch>”`
-   - 合并后转入”情况 C”清理该任务分支
+4. 若当前分支是任务分支（`opencat/<task-name>`），或任何可明确判定仍承载成果的非 `trunk` 分支，变基后都必须合并回 `trunk`：
+   - 切到主 worktree，执行 `git merge --no-ff "<branch>"`
+   - 合并后转入”情况 C”清理对应残留分支
 5. 若当前分支是闲置分支（`opencat/idle/<slot-name>`），变基后保持在该分支：
    - 闲置分支必须始终与 `trunk` 保持一致，避免后续从闲置态领取任务时出现分支交叉
 6. 变基后重新分类：
@@ -225,7 +227,7 @@ cleanup 的职责就是把所有非 `idle-ready` 状态最终收敛成：
 
 处理方式：
 
-1. 确认 worktree 没有未提交改动；若有，先执行情况 A 的自动提交
+1. 确认 worktree 没有未提交改动；若有，先执行情况 A 的自定义描述提交
 2. 将对应 worktree 切回它的 `idle branch`
 3. 将 `idle branch` 变基到最新 `trunk`（`git rebase <trunk>`），确保闲置分支与主干保持一致，避免分支交叉
 4. 删除对应任务分支
@@ -256,7 +258,7 @@ cleanup 的职责就是把所有非 `idle-ready` 状态最终收敛成：
 
 1. 先扫描 OpenSpec active changes
 2. 收集所有 worktree、任务分支、闲置分支和未提交改动
-3. 对所有未提交改动先做自动提交，再变基到最新 `trunk`；若是任务分支则合并回 `trunk`
+3. 对所有待收口成果先做贴合实际改动的自定义描述提交，再变基到最新 `trunk`；凡仍承载独有提交的非 `trunk` 分支都要合并回 `trunk`
 4. 若存在未归档 change 或未合并任务，优先启动子 Agent 继续这些任务
 5. 对已合并任务分支执行清理：
    - 删除任务分支
@@ -314,6 +316,7 @@ cleanup 的职责就是把所有非 `idle-ready` 状态最终收敛成：
 
 - `openspec` 中不存在 active 且未归档的 change
 - 不存在已合并但未删除的任务分支
+- 不存在仍承载未并回 `trunk` 成果的非 `trunk` 分支
 - 不存在仍在任务态的保留 worktree
 - 不存在被误删的未合并任务
 - 现在可以安全进入 `opencat-work` 的 TODO List 执行
@@ -327,7 +330,7 @@ cleanup 的职责就是把所有非 `idle-ready` 状态最终收敛成：
 当 cleanup 遇到不确定状态时，必须优先选择“保留现场、继续收敛”的方案，而不是停下来提问。默认决策顺序如下：
 
 1. 先保留 worktree 与分支承载关系，不做破坏性清理
-2. 先自动提交未提交改动，再判断后续归类
+2. 先生成贴合实际内容的自定义描述提交，再判断后续归类
 3. 若看起来像未完成任务，优先当作任务继续推进
 4. 若看起来已合并，则先切回 `idle branch` 再删任务分支
 5. 若无法百分百判断，也先记录风险并选择最保守的继续路径
@@ -357,7 +360,7 @@ cleanup 的职责就是把所有非 `idle-ready` 状态最终收敛成：
 **Target Worktree:** <path>
 **Idle Branch:** <idle-branch>
 **Current Branch:** <branch|detached>
-**Decision:** auto-commit | continue-task | cleanup-merged | restore-idle
+**Decision:** describe-commit | continue-task | cleanup-merged | restore-idle
 
 <进度说明>
 ```
@@ -366,7 +369,7 @@ cleanup 的职责就是把所有非 `idle-ready` 状态最终收敛成：
 
 - 扫描到的 worktree / 分支数量
 - 发现并处理的 active OpenSpec changes
-- 自动提交的未提交改动数量
+- 以自定义描述提交收口的改动 / 分支数量
 - 继续执行的未合并任务
 - 已清理的已合并任务分支
 - 已恢复到闲置态的 worktree
@@ -379,7 +382,7 @@ cleanup 的职责就是把所有非 `idle-ready` 状态最终收敛成：
 
 | 规则 | 说明 |
 |------|------|
-| 未提交先自动提交 | 发现未提交改动时，先自动提交，再决定后续动作 |
+| 未提交先自定义描述提交 | 发现未提交改动或待收口成果时，先生成贴合实际改动的提交描述并提交，再决定后续动作 |
 | 未合并先续做 | 有未合并任务提交时，必须继续 `opencat-task`，不能直接删 |
 | OpenSpec 先收尾 | active change 未归档时，先实现并 archive，再清 Git 残留 |
 | 已合并再清理 | 仅当确认已合并进 `trunk` 后，才删除任务分支 |

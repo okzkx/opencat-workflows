@@ -1,6 +1,6 @@
 ---
 name: opencat-check
-description: 检查并补齐 OpenCat / OpenSpec 环境。**严禁**把 detached、挂在 `trunk` 或脏的保留 worktree 当作可复用槽位；拓扑异常**必须**转交 `opencat-cleanup`。默认由 `opencat-work` 在队列入口统一调用。
+description: 检查并补齐 OpenCat / OpenSpec 环境，并判定仓库是否已达到 OpenCat 队列入口就绪态。入口就绪的前提包括：所有承载开发成果的分支都已先用贴合实际改动的自定义描述提交收口并合并回 `trunk`，所有 `idle branch` 都已对齐最新 `trunk`；凡未满足者都**必须**转交 `opencat-cleanup`。默认由 `opencat-work` 在队列入口统一调用。
 compatibility: 需要 shell 权限；当缺少工具或缺失 worktree 槽位元数据时，需要允许安装依赖或创建最小必要的分支 / worktree 元数据。
 ---
 
@@ -9,14 +9,16 @@ compatibility: 需要 shell 权限；当缺少工具或缺失 worktree 槽位元
 ## 🚨 核心不可违反规则
 
 1. **严禁**把 detached、直接停在 `trunk`、或工作区脏的保留 worktree 当作可复用槽位。
-2. 发现 worktree 拓扑异常时，**必须**转交 `opencat-cleanup`，不要临时发明破坏性修复。
-3. 本技能只允许补齐最小必要元数据；**严禁**吞掉、覆盖或丢弃已有任务工作。
-4. 只要前置条件还没补齐，就**不得**继续进入 `opencat-task`。
-5. **必须**默认自主决断并继续完成剩余检查；最多记录环境限制，不因常规不确定性暂停询问用户。
+2. 只要发现任何非 `trunk` 分支仍承载未收口成果，或任何 `idle branch` 尚未对齐最新 `trunk`，都**必须**先转交 `opencat-cleanup` 做分支收敛，不得跳过。
+3. 进入 OpenCat 队列前，所有待收口成果都必须先以贴合实际改动的自定义描述提交保存；**严禁**用空泛占位描述跳过收尾要求。
+4. 本技能只允许补齐最小必要元数据；**严禁**吞掉、覆盖或丢弃已有任务工作。
+5. 只要前置条件还没补齐，就**不得**继续进入 `opencat-task`。
+6. **必须**默认自主决断并继续完成剩余检查；最多记录环境限制，不因常规不确定性暂停询问用户。
 
 ## 最高准则
 
 - **必须**把“完成完整 OpenCat 工作流”作为最高优先级
+- **必须**把“所有开发功能分支都已收口到 `trunk`、所有 `idle branch` 都已同步到最新 `trunk`”视为队列入口的硬前提
 - **绝对不要**因为任何预期外的变动停止执行；包括但不限于额外未提交修改、删除文件、子模块新变化、执行过程中冒出的附带改动
 - **必须**把当前未提交改动视为允许自动收口的工作流残留；继续执行相关 OpenCat 流程时，无需再因未预期改动中断
 - 遇到预期外变动时，默认策略是记录并继续，把它视为后续技能链路需要一并处理的现实状态
@@ -33,8 +35,8 @@ compatibility: 需要 shell 权限；当缺少工具或缺失 worktree 槽位元
 
 - `opencat-work` 在开始执行 TODO 队列前，固定先调用一次 `opencat-check`
 - 正常的 `opencat-work -> opencat-task` 链路中，`opencat-task` **不重复调用** `opencat-check`
-- `opencat-check` 只负责环境、依赖和 worktree 拓扑检查，不负责工程残留清理
-- 一旦发现 retained worktree、任务分支或闲置槽位状态异常，应立即转交 `opencat-cleanup`
+- `opencat-check` 负责环境、依赖、分支收敛状态和 worktree 拓扑检查，但不负责展开完整 cleanup 执行细节
+- 一旦发现 retained worktree、任务分支、其他未收口分支或闲置槽位状态异常，应立即转交 `opencat-cleanup`
 
 ---
 
@@ -63,9 +65,15 @@ compatibility: 需要 shell 权限；当缺少工具或缺失 worktree 槽位元
    - 若项目依赖缺失，则使用从 lockfile 推导出的包管理器安装依赖
    - 若依赖已完整安装，不要为了保险而重复安装
 
-4. **检查 OpenCat worktree 拓扑**
+4. **检查分支收敛状态与 OpenCat worktree 拓扑**
 
-   对每个保留的 worktree 槽位，检查：
+   先检查整个仓库是否已达到“可进入队列”的收敛状态：
+
+   - 是否存在相对 `trunk` 仍有独有提交的非 `trunk` 分支
+   - 这些分支上的成果是否已经以贴合实际内容的自定义描述提交保存
+   - 所有 `opencat/idle/<slot-name>` 是否已经对齐最新 `trunk`
+
+   然后再对每个保留的 worktree 槽位，检查：
 
    - worktree 路径
    - 当前分支，或是否处于 detached 状态
@@ -82,7 +90,9 @@ compatibility: 需要 shell 权限；当缺少工具或缺失 worktree 槽位元
    3. 一个忙碌中的 worktree 只有在以下条件都满足时才算合法：
       - 当前位于一个明确命名的任务分支上，例如 `opencat/<task-name>`
       - 不处于 detached 状态
-   4. 保留 worktree 不允许长期处于以下状态：
+   4. 队列入口不允许保留任何尚未收口到 `trunk` 的开发分支；若某分支相对 `trunk` 仍有独有提交，则必须先经 `opencat-cleanup` 用贴合实际改动的自定义描述提交完成收口，再合并回 `trunk`
+   5. 所有 `idle branch` 都必须与最新 `trunk` 对齐，避免从闲置态领取新任务时产生分支交叉
+   6. 保留 worktree 不允许长期处于以下状态：
       - detached HEAD
       - 直接停在 `trunk`
       - 在闲置分支上但工作区是脏的
@@ -110,6 +120,8 @@ compatibility: 需要 shell 权限；当缺少工具或缺失 worktree 槽位元
    - 闲置 worktree 处于脏状态
    - 保留 worktree 直接停在 `trunk`
    - 保留 worktree 停在一个仍有未完成工作的任务分支上
+   - 任意非 `trunk` 分支仍有尚未合并到 `trunk` 的独有提交
+   - 任意 `idle branch` 尚未对齐最新 `trunk`
 
    这些状态都表示仓库**尚未就绪**，必须转交给 `opencat-cleanup` 处理。
 
@@ -125,6 +137,8 @@ compatibility: 需要 shell 权限；当缺少工具或缺失 worktree 槽位元
    - 哪些工具原本就可用
    - 本次运行期间安装了哪些工具或依赖
    - 哪些保留 worktree 已经处于 `idle-ready`
+   - 是否仍有分支必须先经自定义描述提交并合并回 `trunk`
+   - 是否仍有 `idle branch` 必须先同步到最新 `trunk`
    - 是否有 worktree 必须先经过 `opencat-cleanup`
    - 当前环境是否已经可以运行 `opencat-task`
    - 是否仍有已记录但未自动消除的问题
@@ -134,6 +148,9 @@ compatibility: 需要 shell 权限；当缺少工具或缺失 worktree 槽位元
 - 优先使用仓库现有的包管理器，不要凭空换一套
 - 只安装满足当前工作流所需的最小依赖
 - 只要前置条件还没补齐，就不要继续进入 `opencat-task`
+- 进入队列前，必须先确保所有开发分支都已收口到 `trunk`
+- 进入队列前，必须先确保所有 `idle branch` 都已对齐最新 `trunk`
+- 若发现待收口成果，必须先经 `opencat-cleanup` 用贴合实际改动的自定义描述提交保存，再合并回 `trunk`
 - 不要把 detached / 挂在 `trunk` / 脏的保留 worktree 当作可复用槽位
 - 若 worktree 拓扑不健康，应转交 `opencat-cleanup`，不要临时发明破坏性修复
 - 若安装需要管理员权限、联网批准，或涉及代理无法安全决定的系统级选择，不要暂停发问；应记录该环境限制，并继续完成剩余可执行检查
