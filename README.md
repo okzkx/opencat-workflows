@@ -9,8 +9,9 @@
 
 `OpenCat Workflows` is a reusable workflow package for `Claude Code` and `Cursor`.
 The recommended distribution model is to install it as a `Claude Code` plugin. If marketplace installation is not available in your environment, you can copy the directories under `skills/` into your own skills folder as a fallback.
-Version `0.2.7` standardizes the current execution model around five skills:
+Version `0.2.8` standardizes the current execution model around six skills:
 
+- `opencat-auto-test` for headed browser-based Web regression checks through local `playwright-cli`
 - `opencat-check` for environment and topology readiness
 - `opencat-cleanup` for residue recovery and idle-state convergence
 - `opencat-task` for one isolated OpenSpec change flow
@@ -21,11 +22,12 @@ This package does not bundle OpenSpec itself. Full task execution still depends 
 
 ## Included Skills
 
-| Skill | Role in `0.2.7` |
+| Skill | Role in `0.2.8` |
 |------|------|
+| `opencat-auto-test` | Runs lightweight Web automation through local `playwright-cli` in headed mode and returns pass/fail/blocker findings |
 | `opencat-check` | Verifies Git, Node.js, package manager, OpenSpec availability, and retained worktree topology |
 | `opencat-cleanup` | Finishes interrupted work safely and returns retained worktrees to their paired `opencat/idle/<slot-name>` branches |
-| `opencat-task` | Runs one OpenSpec task through propose, apply, archive, merge, and final cleanup, using a task branch by default and switching to a retained worktree only when `worktree` is explicitly requested |
+| `opencat-task` | Runs one OpenSpec task through propose, apply, optional `opencat-auto-test` fix/retest loop, archive, merge, and final cleanup, using a task branch by default and switching to a retained worktree only when `worktree` is explicitly requested |
 | `opencat-work` | Reads activated items from `TODO.md`, consumes one runnable task at a time, re-reads the real queue after each task, delegates real execution to `opencat-task`, and forwards worktree mode only when it is explicitly requested |
 | `opencat-agent` | Generates or reuses a task-subagent persona, persists it as an Agent file, and defines Git identity rules for the executor |
 
@@ -37,7 +39,7 @@ Use this when you already know the exact change name.
 
 1. Run `opencat-check`
 2. Run `opencat-task <change-name>` for the default branch mode, or run `opencat-task worktree <change-name>` when retained-worktree isolation is explicitly needed
-3. Let `opencat-task` call `opencat-cleanup` at the start and end of the flow
+3. Let `opencat-task` run `opencat-auto-test` when conditions allow, then handle `opencat-cleanup` at the start and end of the flow
 
 `opencat-task` is the executor. `opencat-check` is the readiness gate.
 
@@ -88,7 +90,7 @@ Recommended path:
 1. Place `opencat-workflows/` under your local `custom-plugins` marketplace root
 2. Add or verify `"source": "./opencat-workflows"` in `custom-plugins/.claude-plugin/marketplace.json`
 3. Run `claude plugin install opencat-workflows@custom-plugins`
-4. Confirm `/opencat-workflows:opencat-check`, `/opencat-workflows:opencat-cleanup`, `/opencat-workflows:opencat-task`, `/opencat-workflows:opencat-work`, and `/opencat-workflows:opencat-agent` are visible
+4. Confirm `/opencat-workflows:opencat-auto-test`, `/opencat-workflows:opencat-check`, `/opencat-workflows:opencat-cleanup`, `/opencat-workflows:opencat-task`, `/opencat-workflows:opencat-work`, and `/opencat-workflows:opencat-agent` are visible
 
 Fallback path:
 
@@ -105,7 +107,7 @@ Cursor can consume the same canonical skills directly:
 1. Copy each directory under `skills/` into the target repository's `.cursor/skills/`
 2. Keep the original folder names so discovery remains stable
 3. Reload Cursor if the skills do not appear immediately
-4. Confirm `opencat-check`, `opencat-cleanup`, `opencat-task`, `opencat-work`, and `opencat-agent` are discoverable
+4. Confirm `opencat-auto-test`, `opencat-check`, `opencat-cleanup`, `opencat-task`, `opencat-work`, and `opencat-agent` are discoverable
 
 ## Quick Start
 
@@ -129,6 +131,7 @@ Minimal `TODO.md` example:
 ## Basic Commands
 
 ```text
+/opencat-workflows:opencat-auto-test http://localhost:3000/
 /opencat-workflows:opencat-check
 /opencat-workflows:opencat-cleanup
 /opencat-workflows:opencat-task my-change-name
@@ -178,7 +181,7 @@ In this example, `Task A` and `Task B` are runnable. `Backlog Task C` is not.
 
 1. Run `opencat-check`
 2. Run `opencat-task <change-name>` for branch mode, or `opencat-task worktree <change-name>` when you explicitly want worktree mode
-3. Let the task flow finish its own cleanup
+3. Let the task flow run `opencat-auto-test` when possible and finish its own cleanup
 
 ### Serial TODO Execution
 
