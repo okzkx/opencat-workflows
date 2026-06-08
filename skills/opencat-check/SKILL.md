@@ -4,6 +4,8 @@ description: 检查并补齐 OpenCat / OpenSpec 环境，并判定仓库是否�
 compatibility: 需要 shell 权限；当缺少工具或缺失 worktree 槽位元数据时，需要允许安装依赖或创建最小必要的分支 / worktree 元数据。
 ---
 
+# OpenCat 环境检查
+
 在执行 OpenCat 工作流之前，先完成环境检查与安全引导修复。
 
 ## 🚨 核心不可违反规则
